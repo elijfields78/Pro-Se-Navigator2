@@ -18,7 +18,7 @@ import * as Haptics from 'expo-haptics';
 export default function CasesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { cases, messages, isLoading, setActiveCase } = useCases();
+  const { cases, messages, isLoading, setActiveCase, deleteCase } = useCases();
 
   const handlePress = (id: string) => {
     setActiveCase(id);
@@ -94,6 +94,7 @@ export default function CasesScreen() {
                 caseItem={item}
                 lastMessage={last?.content}
                 onPress={() => handlePress(item.id)}
+                onDelete={() => deleteCase(item.id)}
               />
             );
           }}

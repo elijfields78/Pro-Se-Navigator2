@@ -40,6 +40,7 @@ interface CasesContextType {
   activeCaseId: string | null;
   isLoading: boolean;
   createCase: (data: CreateCaseInput) => Promise<Case>;
+  deleteCase: (id: string) => void;
   sendMessage: (caseId: string, content: string) => void;
   setActiveCase: (id: string | null) => void;
   getCaseMessages: (caseId: string) => Message[];
@@ -226,6 +227,24 @@ export function CasesProvider({ children }: { children: ReactNode }) {
     [cases, messages, deadlines, sources, persist],
   );
 
+  const deleteCase = useCallback(
+    (id: string) => {
+      const updatedCases    = cases.filter((c) => c.id !== id);
+      const updatedMessages = { ...messages };
+      delete updatedMessages[id];
+      const updatedDeadlines = deadlines.filter((d) => d.caseId !== id);
+      const updatedSources   = sources.filter((s) => s.caseId !== id);
+
+      setCases(updatedCases);
+      setMessages(updatedMessages);
+      setDeadlines(updatedDeadlines);
+      setSources(updatedSources);
+      if (activeCaseId === id) setActiveCaseIdState(null);
+      persist(updatedCases, updatedMessages, updatedDeadlines, updatedSources);
+    },
+    [cases, messages, deadlines, sources, activeCaseId, persist],
+  );
+
   const setActiveCase = useCallback((id: string | null) => {
     setActiveCaseIdState(id);
   }, []);
@@ -273,6 +292,7 @@ export function CasesProvider({ children }: { children: ReactNode }) {
         activeCaseId,
         isLoading,
         createCase,
+        deleteCase,
         sendMessage,
         setActiveCase,
         getCaseMessages,

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, View, Text, StyleSheet } from 'react-native';
+import { Pressable, View, Text, StyleSheet, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
 import { Case, CaseType } from '@/contexts/types';
@@ -28,10 +28,27 @@ interface CaseCardProps {
   caseItem: Case;
   lastMessage?: string;
   onPress: () => void;
+  onDelete: () => void;
 }
 
-export default function CaseCard({ caseItem, lastMessage, onPress }: CaseCardProps) {
+export default function CaseCard({ caseItem, lastMessage, onPress, onDelete }: CaseCardProps) {
   const colors = useColors();
+
+  const handleLongPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert(
+      caseItem.title || 'This case',
+      'Delete this case? This removes all messages, deadlines, and sources linked to it. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: onDelete,
+        },
+      ],
+    );
+  };
 
   return (
     <Pressable
@@ -39,6 +56,8 @@ export default function CaseCard({ caseItem, lastMessage, onPress }: CaseCardPro
         Haptics.selectionAsync();
         onPress();
       }}
+      onLongPress={handleLongPress}
+      delayLongPress={400}
       style={({ pressed }) => [
         styles.card,
         { backgroundColor: colors.surface, borderColor: colors.border },
