@@ -25,19 +25,26 @@ export default function CaseChat({ caseId, messages }: CaseChatProps) {
     [caseId, sendMessage],
   );
 
-  // Inverted FlatList shows newest at bottom — data must be reversed (newest-first)
+  // Inverted FlatList — data must be reversed (newest-first in the array).
   const reversedMessages = [...messages].reverse();
 
-  const renderItem = ({ item }: { item: Message }) =>
-    item.role === 'navigator' ? (
-      <AIMessage
-        content={item.content}
-        nextSteps={item.nextSteps}
-        onNextStepPress={handleNextStep}
-      />
-    ) : (
-      <UserMessage content={item.content} />
-    );
+  // Only the most-recent navigator message gets interactive next-step buttons.
+  // All previous messages have their options hidden so they don't pile up.
+  const lastNavId = reversedMessages.find((m) => m.role === 'navigator')?.id ?? null;
+
+  const renderItem = ({ item }: { item: Message }) => {
+    if (item.role === 'navigator') {
+      const isLatest = item.id === lastNavId;
+      return (
+        <AIMessage
+          content={item.content}
+          nextSteps={isLatest ? item.nextSteps : undefined}
+          onNextStepPress={isLatest ? handleNextStep : undefined}
+        />
+      );
+    }
+    return <UserMessage content={item.content} />;
+  };
 
   return (
     <KeyboardAvoidingView

@@ -127,7 +127,12 @@ const intakeScripts: Record<CaseType, IntakeTurn[]> = {
         { id: 'state_texas', label: 'Texas', subtitle: '' },
         { id: 'state_florida', label: 'Florida', subtitle: '' },
         { id: 'state_new_york', label: 'New York', subtitle: '' },
-        { id: 'state_other', label: 'A different state', subtitle: "I'll tell you which one" },
+        {
+          id: 'state_other',
+          label: 'A different state',
+          subtitle: "I'll tell you which one",
+          followUpPrompt: "No problem — which state was the ticket in?\n\nJust type it in and I'll look up the rules that apply.",
+        },
       ],
     },
     {
