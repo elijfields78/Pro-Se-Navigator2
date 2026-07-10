@@ -42,6 +42,15 @@ export default function CaseChat({ caseId, messages }: CaseChatProps) {
   // All previous messages have their options hidden so they don't pile up.
   const lastNavId = reversedMessages.find((m) => m.role === 'navigator')?.id ?? null;
 
+  const handleRegenerate = useCallback(() => {
+    // Placeholder — AI not connected yet (Phase 6)
+    Alert.alert(
+      'Regenerate',
+      'AI regeneration will be available once the AI is connected in Phase 6.',
+      [{ text: 'OK' }],
+    );
+  }, []);
+
   const renderItem = ({ item }: { item: Message }) => {
     if (item.role === 'navigator') {
       const isLatest = item.id === lastNavId;
@@ -50,6 +59,7 @@ export default function CaseChat({ caseId, messages }: CaseChatProps) {
           content={item.content}
           nextSteps={isLatest ? item.nextSteps : undefined}
           onNextStepPress={isLatest ? handleNextStep : undefined}
+          onRegenerate={isLatest ? handleRegenerate : undefined}
         />
       );
     }

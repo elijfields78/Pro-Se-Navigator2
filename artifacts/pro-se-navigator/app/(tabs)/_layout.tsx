@@ -27,10 +27,6 @@ function NativeTabLayout() {
         <Icon sf={{ default: 'clock', selected: 'clock.fill' }} />
         <Label>Deadlines</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="artifacts">
-        <Icon sf={{ default: 'folder', selected: 'folder.fill' }} />
-        <Label>Artifacts</Label>
-      </NativeTabs.Trigger>
     </NativeTabs>
   );
 }
@@ -121,18 +117,8 @@ function ClassicTabLayout() {
             ),
         }}
       />
-      <Tabs.Screen
-        name="artifacts"
-        options={{
-          title: 'Artifacts',
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="folder" tintColor={color} size={22} />
-            ) : (
-              <Feather name="folder" size={21} color={color} />
-            ),
-        }}
-      />
+      {/* Artifacts removed from tab bar — accessible via Settings menu */}
+      <Tabs.Screen name="artifacts" options={{ href: null }} />
       {/* Hidden — redirect only */}
       <Tabs.Screen name="index" options={{ href: null }} />
     </Tabs>

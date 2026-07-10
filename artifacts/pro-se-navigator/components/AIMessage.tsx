@@ -1,6 +1,8 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
+import * as Haptics from 'expo-haptics';
 import { useColors } from '@/hooks/useColors';
 import { NextStep } from '@/contexts/types';
 import NextStepRow from './NextStepRow';
@@ -9,10 +11,25 @@ interface AIMessageProps {
   content: string;
   nextSteps?: NextStep[];
   onNextStepPress?: (step: NextStep) => void;
+  /** Called when the user taps Regenerate. Undefined = button not shown. */
+  onRegenerate?: () => void;
 }
 
-export default function AIMessage({ content, nextSteps, onNextStepPress }: AIMessageProps) {
+export default function AIMessage({
+  content,
+  nextSteps,
+  onNextStepPress,
+  onRegenerate,
+}: AIMessageProps) {
   const colors = useColors();
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(async () => {
+    await Clipboard.setStringAsync(content);
+    Haptics.selectionAsync();
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [content]);
 
   return (
     <View style={styles.container}>
@@ -38,6 +55,40 @@ export default function AIMessage({ content, nextSteps, onNextStepPress }: AIMes
           ))}
         </View>
       )}
+
+      {/* ── Message actions ── */}
+      <View style={styles.actions}>
+        <Pressable
+          style={({ pressed }) => [styles.actionBtn, pressed && { opacity: 0.5 }]}
+          onPress={handleCopy}
+          hitSlop={6}
+        >
+          <Feather
+            name={copied ? 'check' : 'copy'}
+            size={13}
+            color={copied ? colors.primary : colors.textMuted}
+          />
+          <Text
+            style={[
+              styles.actionLabel,
+              { color: copied ? colors.primary : colors.textMuted },
+            ]}
+          >
+            {copied ? 'Copied' : 'Copy'}
+          </Text>
+        </Pressable>
+
+        {onRegenerate != null && (
+          <Pressable
+            style={({ pressed }) => [styles.actionBtn, pressed && { opacity: 0.5 }]}
+            onPress={onRegenerate}
+            hitSlop={6}
+          >
+            <Feather name="refresh-cw" size={13} color={colors.textMuted} />
+            <Text style={[styles.actionLabel, { color: colors.textMuted }]}>Regenerate</Text>
+          </Pressable>
+        )}
+      </View>
     </View>
   );
 }
@@ -68,5 +119,21 @@ const styles = StyleSheet.create({
   nextSteps: {
     marginTop: 16,
     borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginTop: 10,
+    paddingTop: 2,
+  },
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  actionLabel: {
+    fontSize: 12,
+    fontFamily: 'Inter_400Regular',
   },
 });

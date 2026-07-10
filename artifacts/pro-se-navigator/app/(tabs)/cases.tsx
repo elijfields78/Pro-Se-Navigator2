@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import { useCases } from '@/contexts/CasesContext';
+import { useAuth } from '@/contexts/AuthContext';
 import CaseCard from '@/components/CaseCard';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -19,6 +20,11 @@ export default function CasesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { cases, messages, isLoading, setActiveCase, deleteCase } = useCases();
+  const { user } = useAuth();
+
+  const initials = user?.name
+    ? user.name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
+    : (user?.email?.[0] ?? '?').toUpperCase();
 
   const handlePress = (id: string) => {
     setActiveCase(id);
@@ -47,6 +53,13 @@ export default function CasesScreen() {
           { paddingTop: insets.top + 16, borderBottomColor: colors.border },
         ]}
       >
+        <Pressable
+          onPress={() => router.push('/settings')}
+          style={[styles.avatarBtn, { backgroundColor: colors.verifiedBg }]}
+          hitSlop={6}
+        >
+          <Text style={[styles.avatarText, { color: colors.primary }]}>{initials}</Text>
+        </Pressable>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Cases</Text>
         <Pressable
           onPress={handleNew}
@@ -125,6 +138,17 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontFamily: 'Inter_600SemiBold',
     letterSpacing: -0.5,
+  },
+  avatarBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
   },
   newBtn: {
     width: 36,
