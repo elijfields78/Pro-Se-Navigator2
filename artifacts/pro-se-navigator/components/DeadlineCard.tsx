@@ -34,52 +34,105 @@ export default function DeadlineCard({ deadline, showCaseTitle }: DeadlineCardPr
   else if (isUrgent) urgencyLabel = `${days} day${days === 1 ? '' : 's'} away`;
   else urgencyLabel = formatDate(deadline.dueDate);
 
-  return (
-    <View style={[styles.card, { backgroundColor: colors.deadlineBg, borderColor: colors.border }]}>
-      <View style={styles.header}>
-        <Feather name="clock" size={13} color={colors.deadlineText} />
-        <Text style={[styles.urgency, { color: colors.deadlineText }]}>{urgencyLabel}</Text>
-        {(isOverdue || isUrgent) && (
-          <Text style={[styles.date, { color: colors.deadlineText }]}>· {formatDate(deadline.dueDate)}</Text>
+  // Three-state visual system
+  if (isOverdue) {
+    return (
+      <View style={[styles.card, styles.overdueCard]}>
+        <View style={styles.header}>
+          <Feather name="alert-circle" size={13} color="#DC2626" />
+          <Text style={[styles.urgency, { color: '#DC2626' }]}>{urgencyLabel}</Text>
+          <Text style={[styles.date, { color: '#DC262699' }]}>· {formatDate(deadline.dueDate)}</Text>
+        </View>
+        <Text style={[styles.description, { color: '#7F1D1D', fontFamily: 'Inter_600SemiBold' }]}>
+          {deadline.description}
+        </Text>
+        {showCaseTitle && (
+          <Text style={[styles.caseTitle, { color: '#991B1B' }]}>{deadline.caseTitle}</Text>
         )}
+        <Text style={[styles.rule, { color: '#B91C1CBB' }]}>{deadline.ruleBasis}</Text>
+        <Text style={[styles.disclaimer, { color: '#DC262688' }]}>Confirm against your court's rules.</Text>
+      </View>
+    );
+  }
+
+  if (isUrgent) {
+    return (
+      <View style={[styles.card, { backgroundColor: colors.deadlineBg, borderColor: '#D97706' + '44' }]}>
+        <View style={styles.header}>
+          <Feather name="clock" size={13} color={colors.deadlineText} />
+          <Text style={[styles.urgency, { color: colors.deadlineText }]}>{urgencyLabel}</Text>
+          {days > 0 && (
+            <Text style={[styles.date, { color: colors.deadlineText + '88' }]}>· {formatDate(deadline.dueDate)}</Text>
+          )}
+        </View>
+        <Text style={[styles.description, { color: '#422006', fontFamily: 'Inter_600SemiBold' }]}>
+          {deadline.description}
+        </Text>
+        {showCaseTitle && (
+          <Text style={[styles.caseTitle, { color: colors.deadlineText, opacity: 0.8 }]}>{deadline.caseTitle}</Text>
+        )}
+        <Text style={[styles.rule, { color: colors.deadlineText + 'BB' }]}>{deadline.ruleBasis}</Text>
+        <Text style={[styles.disclaimer, { color: colors.deadlineText + '88' }]}>Confirm against your court's rules.</Text>
+      </View>
+    );
+  }
+
+  // Normal / future
+  return (
+    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <View style={styles.header}>
+        <Feather name="calendar" size={13} color={colors.textMuted} />
+        <Text style={[styles.urgency, { color: colors.textMuted, fontFamily: 'Inter_400Regular' }]}>
+          {urgencyLabel}
+        </Text>
       </View>
       <Text style={[styles.description, { color: colors.text }]}>{deadline.description}</Text>
       {showCaseTitle && (
         <Text style={[styles.caseTitle, { color: colors.textSecondary }]}>{deadline.caseTitle}</Text>
       )}
       <Text style={[styles.rule, { color: colors.textMuted }]}>{deadline.ruleBasis}</Text>
-      <Text style={[styles.disclaimer, { color: colors.textMuted }]}>
-        Confirm against your court's rules.
-      </Text>
+      <Text style={[styles.disclaimer, { color: colors.textMuted }]}>Confirm against your court's rules.</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 10,
-    padding: 14,
+    borderRadius: 16,
+    padding: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    gap: 4,
+    gap: 6,
+    shadowColor: '#1C1B18',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  overdueCard: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+    shadowColor: '#DC2626',
+    shadowOpacity: 0.08,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    marginBottom: 3,
+    marginBottom: 2,
   },
   urgency: {
     fontSize: 12,
-    fontFamily: 'Inter_500Medium',
+    fontFamily: 'Inter_600SemiBold',
   },
   date: {
     fontSize: 12,
     fontFamily: 'Inter_400Regular',
   },
   description: {
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: 'Inter_500Medium',
-    lineHeight: 20,
+    lineHeight: 21,
+    letterSpacing: -0.1,
   },
   caseTitle: {
     fontSize: 12,
@@ -94,6 +147,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: 'Inter_400Regular',
     fontStyle: 'italic',
-    marginTop: 4,
+    marginTop: 3,
   },
 });

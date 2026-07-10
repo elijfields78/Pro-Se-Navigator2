@@ -129,28 +129,36 @@ export default function CaseDetailScreen() {
       </View>
 
       {/* ── Chat / Artifacts segmented control ── */}
-      <View style={[styles.segmentRow, { borderBottomColor: colors.border, backgroundColor: colors.background }]}>
-        <Pressable
-          style={[styles.segmentTab, activeView === 'chat' && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
-          onPress={() => setActiveView('chat')}
-        >
-          <Text style={[styles.segmentLabel, { color: activeView === 'chat' ? colors.primary : colors.textMuted }]}>
-            Chat
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[styles.segmentTab, activeView === 'artifacts' && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
-          onPress={() => setActiveView('artifacts')}
-        >
-          <Text style={[styles.segmentLabel, { color: activeView === 'artifacts' ? colors.primary : colors.textMuted }]}>
-            Artifacts
-          </Text>
-          {caseArtifacts.length > 0 && (
-            <View style={[styles.countBadge, { backgroundColor: colors.primary }]}>
-              <Text style={styles.countBadgeText}>{caseArtifacts.length}</Text>
-            </View>
-          )}
-        </Pressable>
+      <View style={[styles.segmentWrap, { borderBottomColor: colors.border, backgroundColor: colors.background }]}>
+        <View style={[styles.segmentRow, { backgroundColor: 'rgba(28,27,24,0.06)' }]}>
+          <Pressable
+            style={[
+              styles.segmentTab,
+              activeView === 'chat' && [styles.segmentTabActive, { backgroundColor: colors.surface }],
+            ]}
+            onPress={() => { Haptics.selectionAsync(); setActiveView('chat'); }}
+          >
+            <Text style={[styles.segmentLabel, { color: activeView === 'chat' ? colors.text : colors.textMuted }]}>
+              Chat
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[
+              styles.segmentTab,
+              activeView === 'artifacts' && [styles.segmentTabActive, { backgroundColor: colors.surface }],
+            ]}
+            onPress={() => { Haptics.selectionAsync(); setActiveView('artifacts'); }}
+          >
+            <Text style={[styles.segmentLabel, { color: activeView === 'artifacts' ? colors.text : colors.textMuted }]}>
+              Artifacts
+            </Text>
+            {caseArtifacts.length > 0 && (
+              <View style={[styles.countBadge, { backgroundColor: colors.primary }]}>
+                <Text style={styles.countBadgeText}>{caseArtifacts.length}</Text>
+              </View>
+            )}
+          </Pressable>
+        </View>
       </View>
 
       {/* ── Content ── */}
@@ -318,14 +326,21 @@ const styles = StyleSheet.create({
   },
   backBtn: { padding: 4 },
   titleArea: { flex: 1, alignItems: 'center' },
-  caseTitle: { fontSize: 15, fontFamily: 'Inter_500Medium', textAlign: 'center' },
-  caseType: { fontSize: 11, fontFamily: 'Inter_400Regular', textAlign: 'center', marginTop: 1 },
+  caseTitle: { fontSize: 16, fontFamily: 'Inter_600SemiBold', textAlign: 'center', letterSpacing: -0.2 },
+  caseType: { fontSize: 11, fontFamily: 'Inter_400Regular', textAlign: 'center', marginTop: 2 },
   moreBtn: { padding: 4 },
 
   // Segmented control
+  segmentWrap: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
   segmentRow: {
     flexDirection: 'row',
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderRadius: 11,
+    padding: 3,
+    gap: 2,
   },
   segmentTab: {
     flex: 1,
@@ -333,11 +348,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 11,
+    paddingVertical: 9,
+    borderRadius: 9,
+  },
+  segmentTabActive: {
+    shadowColor: '#1C1B18',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
   segmentLabel: {
     fontSize: 14,
-    fontFamily: 'Inter_500Medium',
+    fontFamily: 'Inter_600SemiBold',
   },
   countBadge: {
     minWidth: 18,
@@ -376,7 +399,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 21,
   },
-  artifactList: { paddingHorizontal: 16, paddingTop: 16 },
+  artifactList: { paddingHorizontal: 20, paddingTop: 16 },
 
   // Actions menu
   menuBackdrop: {

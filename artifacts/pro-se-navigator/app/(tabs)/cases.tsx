@@ -99,6 +99,11 @@ export default function CasesScreen() {
         <FlatList
           data={cases}
           keyExtractor={(item) => item.id}
+          ListHeaderComponent={
+            <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>
+              {'Active · ' + cases.length}
+            </Text>
+          }
           renderItem={({ item }) => {
             const msgs = messages[item.id] || [];
             const last = msgs[msgs.length - 1];
@@ -135,31 +140,46 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 30,
     fontFamily: 'Inter_600SemiBold',
-    letterSpacing: -0.5,
+    letterSpacing: -0.7,
   },
   avatarBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#0F6E5625',
   },
   avatarText: {
     fontSize: 13,
     fontFamily: 'Inter_600SemiBold',
   },
   newBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#E8A33D',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 3,
   },
   list: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingHorizontal: 20,
+    paddingTop: 4,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontFamily: 'Inter_600SemiBold',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    paddingBottom: 10,
+    paddingTop: 14,
   },
   empty: {
     flex: 1,

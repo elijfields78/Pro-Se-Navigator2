@@ -12,6 +12,14 @@ export const CASE_TYPE_LABELS: Record<CaseType, string> = {
   ifp: 'Fee Waiver',
 };
 
+// Type-specific badge colors — light-only (v1 is light-only)
+const TYPE_BADGE: Record<CaseType, { bg: string; text: string }> = {
+  fcra:    { bg: '#E1F5EE', text: '#0F6E56' },
+  general: { bg: '#EFEFEB', text: '#6B6A63' },
+  traffic: { bg: '#FFF4E5', text: '#92500A' },
+  ifp:     { bg: '#F0F4FF', text: '#3B5BDB' },
+};
+
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = diff / 60000;
@@ -33,6 +41,7 @@ interface CaseCardProps {
 
 export default function CaseCard({ caseItem, lastMessage, onPress, onDelete }: CaseCardProps) {
   const colors = useColors();
+  const badge = TYPE_BADGE[caseItem.caseType];
 
   const handleLongPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -41,11 +50,7 @@ export default function CaseCard({ caseItem, lastMessage, onPress, onDelete }: C
       'Delete this case? This removes all messages, deadlines, and sources linked to it. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: onDelete,
-        },
+        { text: 'Delete', style: 'destructive', onPress: onDelete },
       ],
     );
   };
@@ -64,6 +69,7 @@ export default function CaseCard({ caseItem, lastMessage, onPress, onDelete }: C
         pressed && styles.pressed,
       ]}
     >
+      {/* Title + time */}
       <View style={styles.top}>
         <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
           {caseItem.title}
@@ -73,9 +79,10 @@ export default function CaseCard({ caseItem, lastMessage, onPress, onDelete }: C
         </Text>
       </View>
 
+      {/* Badge row */}
       <View style={styles.meta}>
-        <View style={[styles.badge, { backgroundColor: colors.verifiedBg }]}>
-          <Text style={[styles.badgeText, { color: colors.primary }]}>
+        <View style={[styles.badge, { backgroundColor: badge.bg }]}>
+          <Text style={[styles.badgeText, { color: badge.text }]}>
             {CASE_TYPE_LABELS[caseItem.caseType]}
           </Text>
         </View>
@@ -86,14 +93,16 @@ export default function CaseCard({ caseItem, lastMessage, onPress, onDelete }: C
         ) : null}
       </View>
 
+      {/* Message preview */}
       {lastMessage ? (
         <Text style={[styles.preview, { color: colors.textMuted }]} numberOfLines={2}>
           {lastMessage}
         </Text>
       ) : null}
 
+      {/* Chevron */}
       <View style={styles.chevron}>
-        <Feather name="chevron-right" size={15} color={colors.border} />
+        <Feather name="chevron-right" size={16} color={colors.primary + '55'} />
       </View>
     </Pressable>
   );
@@ -101,29 +110,40 @@ export default function CaseCard({ caseItem, lastMessage, onPress, onDelete }: C
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    padding: 18,
     borderWidth: StyleSheet.hairlineWidth,
-    gap: 6,
+    gap: 9,
     position: 'relative',
+    // Warm barely-there elevation
+    shadowColor: '#1C1B18',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  pressed: { opacity: 0.65 },
+  pressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.985 }],
+  },
   top: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    paddingRight: 20,
+    paddingRight: 22,
   },
   title: {
     flex: 1,
     fontSize: 16,
-    fontFamily: 'Inter_500Medium',
+    fontFamily: 'Inter_600SemiBold',
+    letterSpacing: -0.2,
+    lineHeight: 22,
     marginRight: 8,
   },
   time: {
     fontSize: 12,
     fontFamily: 'Inter_400Regular',
-    marginTop: 1,
+    marginTop: 2,
   },
   meta: {
     flexDirection: 'row',
@@ -137,7 +157,8 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontSize: 11,
-    fontFamily: 'Inter_500Medium',
+    fontFamily: 'Inter_600SemiBold',
+    letterSpacing: 0.1,
   },
   court: {
     flex: 1,
@@ -148,11 +169,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'Inter_400Regular',
     lineHeight: 19,
-    marginTop: 2,
   },
   chevron: {
     position: 'absolute',
-    right: 14,
+    right: 16,
     top: 0,
     bottom: 0,
     justifyContent: 'center',

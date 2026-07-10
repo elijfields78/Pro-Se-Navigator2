@@ -21,6 +21,23 @@ const KIND_ICONS: Record<ArtifactKind, string> = {
   other: 'file',
 };
 
+// Kind-specific icon container colors — light-only (v1)
+const KIND_STYLE: Record<ArtifactKind, { bg: string; icon: string }> = {
+  motion: { bg: '#E1F5EE', icon: '#0F6E56' },
+  letter: { bg: '#FFF4E5', icon: '#92500A' },
+  form:   { bg: '#F0F4FF', icon: '#3B5BDB' },
+  note:   { bg: '#F5F4F0', icon: '#6B6A63' },
+  other:  { bg: '#F5F4F0', icon: '#6B6A63' },
+};
+
+const KIND_BADGE: Record<ArtifactKind, { bg: string; text: string }> = {
+  motion: { bg: '#E1F5EE', text: '#0F6E56' },
+  letter: { bg: '#FFF4E5', text: '#92500A' },
+  form:   { bg: '#F0F4FF', text: '#3B5BDB' },
+  note:   { bg: '#EFEFEB', text: '#6B6A63' },
+  other:  { bg: '#EFEFEB', text: '#6B6A63' },
+};
+
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = diff / 60000;
@@ -42,6 +59,8 @@ interface ArtifactCardProps {
 
 export default function ArtifactCard({ artifact, showCaseTitle, onPress, onDelete }: ArtifactCardProps) {
   const colors = useColors();
+  const kindStyle = KIND_STYLE[artifact.kind];
+  const badge = KIND_BADGE[artifact.kind];
 
   const handleLongPress = () => {
     if (!onDelete) return;
@@ -64,13 +83,13 @@ export default function ArtifactCard({ artifact, showCaseTitle, onPress, onDelet
       style={({ pressed }) => [
         styles.card,
         { backgroundColor: colors.surface, borderColor: colors.border },
-        pressed && { opacity: 0.65 },
+        pressed && styles.pressed,
       ]}
     >
       {/* Icon + title row */}
       <View style={styles.top}>
-        <View style={[styles.iconWrap, { backgroundColor: colors.verifiedBg }]}>
-          <Feather name={KIND_ICONS[artifact.kind] as any} size={16} color={colors.primary} />
+        <View style={[styles.iconWrap, { backgroundColor: kindStyle.bg }]}>
+          <Feather name={KIND_ICONS[artifact.kind] as any} size={18} color={kindStyle.icon} />
         </View>
         <View style={styles.titleBlock}>
           <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
@@ -87,23 +106,25 @@ export default function ArtifactCard({ artifact, showCaseTitle, onPress, onDelet
         </Text>
       </View>
 
-      {/* Kind badge + preview */}
+      {/* Kind badge */}
       <View style={styles.meta}>
-        <View style={[styles.badge, { backgroundColor: colors.verifiedBg }]}>
-          <Text style={[styles.badgeText, { color: colors.primary }]}>
+        <View style={[styles.badge, { backgroundColor: badge.bg }]}>
+          <Text style={[styles.badgeText, { color: badge.text }]}>
             {KIND_LABELS[artifact.kind]}
           </Text>
         </View>
       </View>
 
+      {/* Content preview */}
       {artifact.content ? (
         <Text style={[styles.preview, { color: colors.textMuted }]} numberOfLines={2}>
           {artifact.content}
         </Text>
       ) : null}
 
+      {/* Chevron */}
       <View style={styles.chevron}>
-        <Feather name="chevron-right" size={15} color={colors.border} />
+        <Feather name="chevron-right" size={16} color={colors.primary + '55'} />
       </View>
     </Pressable>
   );
@@ -111,22 +132,31 @@ export default function ArtifactCard({ artifact, showCaseTitle, onPress, onDelet
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    gap: 6,
+    gap: 9,
     position: 'relative',
+    shadowColor: '#1C1B18',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  pressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.985 }],
   },
   top: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 10,
-    paddingRight: 20,
+    gap: 12,
+    paddingRight: 22,
   },
   iconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -134,10 +164,13 @@ const styles = StyleSheet.create({
   titleBlock: {
     flex: 1,
     gap: 2,
+    paddingTop: 1,
   },
   title: {
     fontSize: 15,
-    fontFamily: 'Inter_500Medium',
+    fontFamily: 'Inter_600SemiBold',
+    letterSpacing: -0.1,
+    lineHeight: 21,
   },
   caseLabel: {
     fontSize: 12,
@@ -146,7 +179,8 @@ const styles = StyleSheet.create({
   time: {
     fontSize: 12,
     fontFamily: 'Inter_400Regular',
-    marginTop: 1,
+    marginTop: 2,
+    flexShrink: 0,
   },
   meta: {
     flexDirection: 'row',
@@ -160,13 +194,13 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontSize: 11,
-    fontFamily: 'Inter_500Medium',
+    fontFamily: 'Inter_600SemiBold',
+    letterSpacing: 0.1,
   },
   preview: {
     fontSize: 13,
     fontFamily: 'Inter_400Regular',
     lineHeight: 19,
-    marginTop: 2,
   },
   chevron: {
     position: 'absolute',

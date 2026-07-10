@@ -11,7 +11,17 @@ export default function UserMessage({ content }: UserMessageProps) {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.bubble, { backgroundColor: colors.verifiedBg }]}>
+      {/* "You" micro-label */}
+      <Text style={[styles.youLabel, { color: colors.textMuted }]}>You</Text>
+      <View
+        style={[
+          styles.bubble,
+          {
+            backgroundColor: colors.verifiedBg,
+            borderColor: colors.primary + '28',
+          },
+        ]}
+      >
         <Text style={[styles.text, { color: colors.text }]}>{content}</Text>
       </View>
     </View>
@@ -21,19 +31,32 @@ export default function UserMessage({ content }: UserMessageProps) {
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 20,
-    paddingVertical: 6,
+    paddingVertical: 8,
     alignItems: 'flex-end',
+    gap: 5,
+  },
+  youLabel: {
+    fontSize: 11,
+    fontFamily: 'Inter_500Medium',
+    letterSpacing: 0.2,
   },
   bubble: {
-    maxWidth: '78%',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    maxWidth: '80%',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderRadius: 18,
     borderBottomRightRadius: 4,
+    borderWidth: 1,
+    // Subtle shadow on bubble
+    shadowColor: '#1C1B18',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
   },
   text: {
     fontSize: 15,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'Inter_500Medium',
     lineHeight: 22,
   },
 });

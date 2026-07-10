@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   headerTitle: { fontSize: 28, fontFamily: 'Inter_600SemiBold', letterSpacing: -0.5 },
-  list: { paddingHorizontal: 16, paddingTop: 16 },
+  list: { paddingHorizontal: 20, paddingTop: 16 },
   empty: {
     flex: 1,
     alignItems: 'center',

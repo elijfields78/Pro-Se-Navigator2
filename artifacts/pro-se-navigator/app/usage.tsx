@@ -241,11 +241,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 20,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    marginBottom: 24,
+    shadowColor: '#1C1B18',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 2,
   },
   planRowLeft: { gap: 2 },
   planRowLabel: { fontSize: 11, fontFamily: 'Inter_400Regular', letterSpacing: 0.3 },
@@ -269,11 +274,16 @@ const styles = StyleSheet.create({
 
   // Stat cards
   statCard: {
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    padding: 16,
-    gap: 10,
+    padding: 18,
+    gap: 12,
     marginBottom: 8,
+    shadowColor: '#1C1B18',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
   statHeader: {
     flexDirection: 'row',
@@ -284,14 +294,14 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: 15, fontFamily: 'Inter_500Medium' },
   statCount: { fontSize: 15, fontFamily: 'Inter_600SemiBold' },
   progressTrack: {
-    height: 6,
+    height: 5,
     borderRadius: 3,
     overflow: 'hidden',
   },
   progressFill: {
-    height: 6,
+    height: 5,
     borderRadius: 3,
-    minWidth: 6,
+    minWidth: 5,
   },
   statSub: { fontSize: 12, fontFamily: 'Inter_400Regular' },
 
@@ -308,10 +318,14 @@ const styles = StyleSheet.create({
 
   // Plan features
   featureCard: {
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    overflow: 'hidden',
     marginBottom: 12,
+    shadowColor: '#1C1B18',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
   featureRow: {
     flexDirection: 'row',
@@ -325,11 +339,16 @@ const styles = StyleSheet.create({
 
   // Upgrade CTA
   upgradeBtnLarge: {
-    borderRadius: 14,
-    paddingVertical: 16,
+    borderRadius: 16,
+    paddingVertical: 18,
     alignItems: 'center',
     gap: 2,
     marginTop: 4,
+    shadowColor: '#E8A33D',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 3,
   },
   upgradeBtnLargeText: { fontSize: 17, fontFamily: 'Inter_600SemiBold' },
   upgradeBtnSub: { fontSize: 12, fontFamily: 'Inter_400Regular' },
