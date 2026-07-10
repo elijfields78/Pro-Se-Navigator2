@@ -14,7 +14,12 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, name?: string) => Promise<void>;
+  /**
+   * Returns `{ needsConfirmation: true }` when Supabase requires the user to
+   * verify their email before signing in. The caller should show a "check your
+   * email" message instead of navigating.
+   */
+  signUp: (email: string, password: string, name?: string) => Promise<{ needsConfirmation: boolean }>;
   signOut: () => Promise<void>;
   /** Returns true if sign-in completed, false if the user canceled the Apple sheet. */
   signInWithApple: () => Promise<boolean>;
@@ -78,16 +83,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error.message.toLowerCase().includes('invalid login credentials')) {
         throw new Error('Incorrect email or password.');
       }
+      if (error.message.toLowerCase().includes('email not confirmed')) {
+        throw new Error('Please confirm your email first. Check your inbox for a link from us, then try signing in again.');
+      }
       throw new Error(error.message);
     }
   }, []);
 
-  const signUp = useCallback(async (email: string, password: string, name?: string) => {
+  const signUp = useCallback(async (email: string, password: string, name?: string): Promise<{ needsConfirmation: boolean }> => {
     const trimmed = email.toLowerCase().trim();
     if (!trimmed || !password) throw new Error('Email and password are required.');
     if (password.length < 8) throw new Error('Password must be at least 8 characters.');
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: trimmed,
       password,
       options: {
@@ -100,6 +108,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       throw new Error(error.message);
     }
+    // When email confirmation is required, Supabase returns no session.
+    // Signal this to the UI so it can show a "check your email" message
+    // instead of silently doing nothing.
+    return { needsConfirmation: !data.session };
   }, []);
 
   const signOut = useCallback(async () => {

@@ -35,8 +35,18 @@ export default function RegisterScreen() {
     }
     setLoading(true);
     try {
-      await signUp(email, password, name);
+      const { needsConfirmation } = await signUp(email, password, name);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (needsConfirmation) {
+        // Email confirmation is required in Supabase — tell the user clearly.
+        Alert.alert(
+          'Check your email',
+          `We sent a confirmation link to ${email.trim().toLowerCase()}. Tap it, then come back here to sign in.\n\nIf you don't see it, check your spam folder.`,
+          [{ text: 'OK', onPress: () => router.replace('/(auth)/login') }],
+        );
+      }
+      // If needsConfirmation is false, a session was created and onAuthStateChange
+      // will fire automatically — no manual navigation needed.
     } catch (e: any) {
       Alert.alert('Sign up failed', e.message || 'Please try again.');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
