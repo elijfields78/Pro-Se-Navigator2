@@ -64,7 +64,7 @@ export default function LoginScreen() {
           </View>
           <Text style={[styles.appName, { color: colors.text }]}>Pro Se Navigator</Text>
           <Text style={[styles.tagline, { color: colors.textSecondary }]}>
-            Harvey-caliber legal guidance{'\n'}for self-represented litigants
+            Step-by-step legal guidance{'\n'}for self-represented litigants
           </Text>
         </View>
 

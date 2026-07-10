@@ -1,7 +1,6 @@
 /**
  * Pro Se Navigator — design tokens
- * Spec: calm, whitespace-first, Harvey-like restraint but warmer, for scared non-lawyers.
- * Light theme only for v1.
+ * Calm, whitespace-first, warmer palette. Light theme only for v1.
  */
 
 const colors = {

@@ -4,7 +4,8 @@ export interface Case {
   id: string;
   title: string;
   caseType: CaseType;
-  court: string;
+  /** Discovered through intake chat, not entered manually */
+  court?: string;
   judge?: string;
   caseNumber?: string;
   serviceDate?: string;

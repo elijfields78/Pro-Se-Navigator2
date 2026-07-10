@@ -23,25 +23,25 @@ const CASE_TYPES: { type: CaseType; label: string; description: string; icon: st
   {
     type: 'general',
     label: 'General Civil',
-    description: 'Disputes, lawsuits, responses',
+    description: 'Lawsuits, disputes, court orders',
     icon: 'file-text',
   },
   {
     type: 'fcra',
-    label: 'FCRA / Credit',
-    description: 'Credit report errors',
+    label: 'Credit Report Error',
+    description: 'Wrong info on your credit report',
     icon: 'credit-card',
   },
   {
     type: 'traffic',
-    label: 'Traffic',
-    description: 'Citations and violations',
+    label: 'Traffic Ticket',
+    description: 'Contest a citation or violation',
     icon: 'navigation',
   },
   {
     type: 'ifp',
     label: 'Fee Waiver',
-    description: 'In forma pauperis / IFP',
+    description: "Can't afford court filing fees",
     icon: 'dollar-sign',
   },
 ];
@@ -52,15 +52,16 @@ export default function NewCaseScreen() {
   const { createCase } = useCases();
 
   const [title, setTitle] = useState('');
-  const [caseType, setCaseType] = useState<CaseType>('general');
-  const [court, setCourt] = useState('');
-  const [judge, setJudge] = useState('');
-  const [caseNumber, setCaseNumber] = useState('');
+  const [caseType, setCaseType] = useState<CaseType | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleCreate = async () => {
     if (!title.trim()) {
-      Alert.alert('Required', 'Please enter a case title.');
+      Alert.alert('One more thing', 'Give this case a short title so you can find it later.');
+      return;
+    }
+    if (!caseType) {
+      Alert.alert('One more thing', 'Select the type of case that best fits your situation.');
       return;
     }
     setLoading(true);
@@ -68,24 +69,29 @@ export default function NewCaseScreen() {
       const newCase = await createCase({
         title: title.trim(),
         caseType,
-        court: court.trim(),
-        judge: judge.trim() || undefined,
-        caseNumber: caseNumber.trim() || undefined,
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace(`/case/${newCase.id}`);
     } catch {
-      Alert.alert('Error', 'Failed to create case. Please try again.');
+      Alert.alert('Error', 'Could not create case. Please try again.');
       setLoading(false);
     }
   };
+
+  const canCreate = title.trim().length > 0 && caseType !== null;
 
   return (
     <KeyboardAvoidingView
       style={[styles.root, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View style={[styles.handle, { borderBottomColor: colors.border, paddingTop: insets.top + 14 }]}>
+      {/* Sheet handle + header */}
+      <View
+        style={[
+          styles.handle,
+          { borderBottomColor: colors.border, paddingTop: insets.top + 14 },
+        ]}
+      >
         <View style={[styles.dragBar, { backgroundColor: colors.border }]} />
         <View style={styles.handleRow}>
           <Text style={[styles.handleTitle, { color: colors.text }]}>New case</Text>
@@ -102,30 +108,39 @@ export default function NewCaseScreen() {
       >
         {/* Case title */}
         <View style={styles.section}>
-          <Text style={[styles.label, { color: colors.text }]}>Case title</Text>
+          <Text style={[styles.label, { color: colors.text }]}>
+            Give this case a title
+          </Text>
+          <Text style={[styles.hint, { color: colors.textMuted }]}>
+            Something short you'll recognize later — only you can see this.
+          </Text>
           <TextInput
             style={[
-              styles.inputFull,
+              styles.titleInput,
               {
                 color: colors.text,
-                borderColor: colors.border,
+                borderColor: caseType ? colors.primary : colors.border,
                 backgroundColor: colors.surface,
                 fontFamily: 'Inter_400Regular',
               },
             ]}
-            placeholder="e.g. Dispute with Equifax re: fraudulent account"
+            placeholder="e.g. Dispute with my landlord, Speeding ticket Aug 2026"
             placeholderTextColor={colors.textMuted}
             value={title}
             onChangeText={setTitle}
             autoFocus
-            returnKeyType="next"
+            returnKeyType="done"
+            maxLength={120}
           />
         </View>
 
         {/* Case type */}
         <View style={styles.section}>
-          <Text style={[styles.label, { color: colors.text }]}>Case type</Text>
-          <View style={styles.typeGrid}>
+          <Text style={[styles.label, { color: colors.text }]}>What best describes your situation?</Text>
+          <Text style={[styles.hint, { color: colors.textMuted }]}>
+            Don't worry if you're not sure — the Navigator will help you figure out the details once you're in the chat.
+          </Text>
+          <View style={styles.typeList}>
             {CASE_TYPES.map((ct) => {
               const active = caseType === ct.type;
               return (
@@ -136,123 +151,71 @@ export default function NewCaseScreen() {
                     setCaseType(ct.type);
                   }}
                   style={[
-                    styles.typeCard,
+                    styles.typeRow,
                     {
                       borderColor: active ? colors.primary : colors.border,
                       backgroundColor: active ? colors.verifiedBg : colors.surface,
                     },
                   ]}
                 >
-                  <Feather
-                    name={ct.icon as any}
-                    size={18}
-                    color={active ? colors.primary : colors.textMuted}
-                  />
-                  <Text
+                  <View
                     style={[
-                      styles.typeLabel,
-                      { color: active ? colors.primary : colors.text },
+                      styles.typeIconWrap,
+                      {
+                        backgroundColor: active ? colors.primary : colors.border,
+                      },
                     ]}
                   >
-                    {ct.label}
-                  </Text>
-                  <Text style={[styles.typeSub, { color: colors.textMuted }]} numberOfLines={2}>
-                    {ct.description}
-                  </Text>
+                    <Feather
+                      name={ct.icon as any}
+                      size={16}
+                      color={active ? '#fff' : colors.textMuted}
+                    />
+                  </View>
+                  <View style={styles.typeText}>
+                    <Text
+                      style={[
+                        styles.typeLabel,
+                        { color: active ? colors.primary : colors.text },
+                      ]}
+                    >
+                      {ct.label}
+                    </Text>
+                    <Text style={[styles.typeSub, { color: colors.textMuted }]}>
+                      {ct.description}
+                    </Text>
+                  </View>
+                  {active && (
+                    <Feather name="check-circle" size={18} color={colors.primary} />
+                  )}
                 </Pressable>
               );
             })}
           </View>
         </View>
 
-        {/* Court */}
-        <View style={styles.section}>
-          <Text style={[styles.label, { color: colors.text }]}>Court</Text>
-          <TextInput
-            style={[
-              styles.inputFull,
-              {
-                color: colors.text,
-                borderColor: colors.border,
-                backgroundColor: colors.surface,
-                fontFamily: 'Inter_400Regular',
-              },
-            ]}
-            placeholder="e.g. U.S. District Court, Southern District of NY"
-            placeholderTextColor={colors.textMuted}
-            value={court}
-            onChangeText={setCourt}
-            returnKeyType="next"
-          />
-        </View>
-
-        {/* Optional fields */}
-        <View style={styles.row}>
-          <View style={styles.halfSection}>
-            <Text style={[styles.label, { color: colors.text }]}>
-              Judge{' '}
-              <Text style={{ color: colors.textMuted, fontFamily: 'Inter_400Regular' }}>
-                (optional)
-              </Text>
-            </Text>
-            <TextInput
-              style={[
-                styles.inputFull,
-                {
-                  color: colors.text,
-                  borderColor: colors.border,
-                  backgroundColor: colors.surface,
-                  fontFamily: 'Inter_400Regular',
-                },
-              ]}
-              placeholder="Hon. …"
-              placeholderTextColor={colors.textMuted}
-              value={judge}
-              onChangeText={setJudge}
-              returnKeyType="next"
-            />
-          </View>
-          <View style={styles.halfSection}>
-            <Text style={[styles.label, { color: colors.text }]}>
-              Case no.{' '}
-              <Text style={{ color: colors.textMuted, fontFamily: 'Inter_400Regular' }}>
-                (optional)
-              </Text>
-            </Text>
-            <TextInput
-              style={[
-                styles.inputFull,
-                {
-                  color: colors.text,
-                  borderColor: colors.border,
-                  backgroundColor: colors.surface,
-                  fontFamily: 'Inter_400Regular',
-                },
-              ]}
-              placeholder="24-cv-…"
-              placeholderTextColor={colors.textMuted}
-              value={caseNumber}
-              onChangeText={setCaseNumber}
-              returnKeyType="done"
-            />
-          </View>
-        </View>
-
-        {/* Submit */}
+        {/* Create button */}
         <Pressable
           onPress={handleCreate}
-          disabled={loading}
+          disabled={loading || !canCreate}
           style={({ pressed }) => [
             styles.createBtn,
-            { backgroundColor: colors.amber },
+            {
+              backgroundColor: canCreate ? colors.amber : colors.border,
+            },
             (pressed || loading) && { opacity: 0.8 },
           ]}
         >
           {loading ? (
-            <ActivityIndicator color={colors.amberText} />
+            <ActivityIndicator color={canCreate ? colors.amberText : colors.textMuted} />
           ) : (
-            <Text style={[styles.createBtnText, { color: colors.amberText }]}>
-              Create case and start intake
+            <Text
+              style={[
+                styles.createBtnText,
+                { color: canCreate ? colors.amberText : colors.textMuted },
+              ]}
+            >
+              Start case
             </Text>
           )}
         </Pressable>
@@ -287,51 +250,58 @@ const styles = StyleSheet.create({
   },
   handleTitle: { fontSize: 18, fontFamily: 'Inter_600SemiBold' },
   closeBtn: { padding: 2 },
-  scroll: { paddingHorizontal: 20, paddingTop: 20, gap: 0 },
-  section: { marginBottom: 20 },
+  scroll: { paddingHorizontal: 20, paddingTop: 24 },
+  section: { marginBottom: 28 },
   label: {
-    fontSize: 14,
-    fontFamily: 'Inter_500Medium',
-    marginBottom: 8,
-  },
-  inputFull: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
     fontSize: 15,
+    fontFamily: 'Inter_600SemiBold',
+    marginBottom: 4,
   },
-  typeGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
+  hint: {
+    fontSize: 13,
+    fontFamily: 'Inter_400Regular',
+    lineHeight: 19,
+    marginBottom: 12,
   },
-  typeCard: {
-    width: '47%',
+  titleInput: {
     borderWidth: 1.5,
     borderRadius: 12,
-    padding: 12,
-    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    fontSize: 15,
+    lineHeight: 22,
   },
+  typeList: {
+    gap: 10,
+  },
+  typeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderRadius: 14,
+    padding: 14,
+    gap: 12,
+  },
+  typeIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  typeText: { flex: 1 },
   typeLabel: {
-    fontSize: 13,
+    fontSize: 15,
     fontFamily: 'Inter_500Medium',
-    marginTop: 4,
   },
   typeSub: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: 'Inter_400Regular',
-    lineHeight: 16,
+    marginTop: 2,
   },
-  row: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 20,
-  },
-  halfSection: { flex: 1 },
   createBtn: {
     height: 54,
-    borderRadius: 12,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,

@@ -1,6 +1,6 @@
 # Pro Se Navigator
 
-Harvey-caliber legal AI for self-represented (pro se) litigants. Organizes a case, drafts filings, tracks deadlines, and verifies every legal citation against a real primary source before it reaches a document.
+Step-by-step legal guidance for self-represented (pro se) litigants. Organizes a case, drafts filings, tracks deadlines, and verifies every legal citation against a real primary source before it reaches a document.
 
 ## Run & Operate
 
