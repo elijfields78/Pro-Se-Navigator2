@@ -29,7 +29,7 @@ const CASE_TYPES: { type: CaseType; label: string; description: string; icon: st
   {
     type: 'fcra',
     label: 'Credit Report Error',
-    description: 'Wrong info on your credit report',
+    description: 'Wrong information on your credit report',
     icon: 'credit-card',
   },
   {
@@ -55,30 +55,26 @@ export default function NewCaseScreen() {
   const [caseType, setCaseType] = useState<CaseType | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleCreate = async () => {
-    if (!title.trim()) {
-      Alert.alert('One more thing', 'Give this case a short title so you can find it later.');
-      return;
-    }
-    if (!caseType) {
-      Alert.alert('One more thing', 'Select the type of case that best fits your situation.');
-      return;
-    }
+  // One tap on a type card both selects it AND starts the case immediately
+  const handleTypeSelect = async (type: CaseType) => {
+    if (loading) return;
+    Haptics.selectionAsync();
+    setCaseType(type);
     setLoading(true);
     try {
+      // Title is optional — pass it only if the user typed something
       const newCase = await createCase({
-        title: title.trim(),
-        caseType,
+        caseType: type,
+        title: title.trim() || undefined,
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace(`/case/${newCase.id}`);
     } catch {
       Alert.alert('Error', 'Could not create case. Please try again.');
+      setCaseType(null);
       setLoading(false);
     }
   };
-
-  const canCreate = title.trim().length > 0 && caseType !== null;
 
   return (
     <KeyboardAvoidingView
@@ -106,77 +102,81 @@ export default function NewCaseScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Case title */}
+        {/* Optional title */}
         <View style={styles.section}>
           <Text style={[styles.label, { color: colors.text }]}>
-            Give this case a title
+            Name this case{' '}
+            <Text style={[styles.optional, { color: colors.textMuted }]}>(optional)</Text>
           </Text>
           <Text style={[styles.hint, { color: colors.textMuted }]}>
-            Something short you'll recognize later — only you can see this.
+            Leave blank and Navigator will name it for you based on your answers.
           </Text>
           <TextInput
             style={[
               styles.titleInput,
               {
                 color: colors.text,
-                borderColor: caseType ? colors.primary : colors.border,
+                borderColor: colors.border,
                 backgroundColor: colors.surface,
                 fontFamily: 'Inter_400Regular',
               },
             ]}
-            placeholder="e.g. Dispute with my landlord, Speeding ticket Aug 2026"
+            placeholder="e.g. Dispute with my landlord"
             placeholderTextColor={colors.textMuted}
             value={title}
             onChangeText={setTitle}
-            autoFocus
             returnKeyType="done"
             maxLength={120}
           />
         </View>
 
-        {/* Case type */}
+        {/* Case type — tap to start */}
         <View style={styles.section}>
-          <Text style={[styles.label, { color: colors.text }]}>What best describes your situation?</Text>
+          <Text style={[styles.label, { color: colors.text }]}>
+            What best describes your situation?
+          </Text>
           <Text style={[styles.hint, { color: colors.textMuted }]}>
-            Don't worry if you're not sure — the Navigator will help you figure out the details once you're in the chat.
+            Tap one to start. The Navigator will ask you questions from there — no legal knowledge needed.
           </Text>
           <View style={styles.typeList}>
             {CASE_TYPES.map((ct) => {
-              const active = caseType === ct.type;
+              const isSelected = caseType === ct.type;
+              const isLoading = loading && isSelected;
               return (
                 <Pressable
                   key={ct.type}
-                  onPress={() => {
-                    Haptics.selectionAsync();
-                    setCaseType(ct.type);
-                  }}
-                  style={[
+                  onPress={() => handleTypeSelect(ct.type)}
+                  disabled={loading}
+                  style={({ pressed }) => [
                     styles.typeRow,
                     {
-                      borderColor: active ? colors.primary : colors.border,
-                      backgroundColor: active ? colors.verifiedBg : colors.surface,
+                      borderColor: isSelected ? colors.primary : colors.border,
+                      backgroundColor: isSelected ? colors.verifiedBg : colors.surface,
+                      opacity: loading && !isSelected ? 0.4 : pressed ? 0.85 : 1,
                     },
                   ]}
                 >
                   <View
                     style={[
                       styles.typeIconWrap,
-                      {
-                        backgroundColor: active ? colors.primary : colors.border,
-                      },
+                      { backgroundColor: isSelected ? colors.primary : colors.border },
                     ]}
                   >
-                    <Feather
-                      name={ct.icon as any}
-                      size={16}
-                      color={active ? '#fff' : colors.textMuted}
-                    />
+                    {isLoading ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Feather
+                        name={ct.icon as any}
+                        size={16}
+                        color={isSelected ? '#fff' : colors.textMuted}
+                      />
+                    )}
                   </View>
                   <View style={styles.typeText}>
                     <Text
                       style={[
                         styles.typeLabel,
-                        { color: active ? colors.primary : colors.text },
+                        { color: isSelected ? colors.primary : colors.text },
                       ]}
                     >
                       {ct.label}
@@ -185,40 +185,16 @@ export default function NewCaseScreen() {
                       {ct.description}
                     </Text>
                   </View>
-                  {active && (
-                    <Feather name="check-circle" size={18} color={colors.primary} />
-                  )}
+                  <Feather
+                    name="chevron-right"
+                    size={16}
+                    color={isSelected ? colors.primary : colors.textMuted}
+                  />
                 </Pressable>
               );
             })}
           </View>
         </View>
-
-        {/* Create button */}
-        <Pressable
-          onPress={handleCreate}
-          disabled={loading || !canCreate}
-          style={({ pressed }) => [
-            styles.createBtn,
-            {
-              backgroundColor: canCreate ? colors.amber : colors.border,
-            },
-            (pressed || loading) && { opacity: 0.8 },
-          ]}
-        >
-          {loading ? (
-            <ActivityIndicator color={canCreate ? colors.amberText : colors.textMuted} />
-          ) : (
-            <Text
-              style={[
-                styles.createBtnText,
-                { color: canCreate ? colors.amberText : colors.textMuted },
-              ]}
-            >
-              Start case
-            </Text>
-          )}
-        </Pressable>
 
         <Text style={[styles.disclaimer, { color: colors.textMuted }]}>
           This is not legal advice. Pro Se Navigator is not a law firm.
@@ -237,11 +213,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  dragBar: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-  },
+  dragBar: { width: 36, height: 4, borderRadius: 2 },
   handleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -252,17 +224,9 @@ const styles = StyleSheet.create({
   closeBtn: { padding: 2 },
   scroll: { paddingHorizontal: 20, paddingTop: 24 },
   section: { marginBottom: 28 },
-  label: {
-    fontSize: 15,
-    fontFamily: 'Inter_600SemiBold',
-    marginBottom: 4,
-  },
-  hint: {
-    fontSize: 13,
-    fontFamily: 'Inter_400Regular',
-    lineHeight: 19,
-    marginBottom: 12,
-  },
+  label: { fontSize: 15, fontFamily: 'Inter_600SemiBold', marginBottom: 4 },
+  optional: { fontSize: 13, fontFamily: 'Inter_400Regular' },
+  hint: { fontSize: 13, fontFamily: 'Inter_400Regular', lineHeight: 19, marginBottom: 12 },
   titleInput: {
     borderWidth: 1.5,
     borderRadius: 12,
@@ -271,9 +235,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
   },
-  typeList: {
-    gap: 10,
-  },
+  typeList: { gap: 10 },
   typeRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -290,26 +252,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   typeText: { flex: 1 },
-  typeLabel: {
-    fontSize: 15,
-    fontFamily: 'Inter_500Medium',
-  },
-  typeSub: {
-    fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-    marginTop: 2,
-  },
-  createBtn: {
-    height: 54,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  createBtnText: {
-    fontSize: 16,
-    fontFamily: 'Inter_500Medium',
-  },
+  typeLabel: { fontSize: 15, fontFamily: 'Inter_500Medium' },
+  typeSub: { fontSize: 12, fontFamily: 'Inter_400Regular', marginTop: 2 },
   disclaimer: {
     fontSize: 11,
     fontFamily: 'Inter_400Regular',

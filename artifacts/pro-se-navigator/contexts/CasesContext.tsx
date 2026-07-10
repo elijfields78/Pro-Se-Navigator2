@@ -7,7 +7,7 @@ import React, {
   ReactNode,
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Case, CaseType, Message, Deadline, VerifiedAuthority, NextStep } from './types';
+import { Case, CaseType, Message, Deadline, VerifiedAuthority } from './types';
 import { useAuth } from './AuthContext';
 import intakeScripts, {
   WRAP_UP_MESSAGE,
@@ -15,14 +15,21 @@ import intakeScripts, {
   POST_INTAKE_RESPONSE,
   POST_INTAKE_NEXT_STEPS,
 } from '@/data/intakeScripts';
+import { generateCaseTitle } from '@/utils/autoTitle';
 
-const casesKey = (uid: string) => `@psn:cases:${uid}`;
+const casesKey    = (uid: string) => `@psn:cases:${uid}`;
 const messagesKey = (uid: string) => `@psn:messages:${uid}`;
 const deadlinesKey = (uid: string) => `@psn:deadlines:${uid}`;
-const sourcesKey = (uid: string) => `@psn:sources:${uid}`;
+const sourcesKey  = (uid: string) => `@psn:sources:${uid}`;
 
 function genId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 9);
+}
+
+/** Input shape for createCase — title is optional; will be auto-generated from intake. */
+export interface CreateCaseInput {
+  caseType: CaseType;
+  title?: string;
 }
 
 interface CasesContextType {
@@ -32,7 +39,7 @@ interface CasesContextType {
   sources: VerifiedAuthority[];
   activeCaseId: string | null;
   isLoading: boolean;
-  createCase: (data: Omit<Case, 'id' | 'createdAt' | 'intakeTurnIndex'>) => Promise<Case>;
+  createCase: (data: CreateCaseInput) => Promise<Case>;
   sendMessage: (caseId: string, content: string) => void;
   setActiveCase: (id: string | null) => void;
   getCaseMessages: (caseId: string) => Message[];
@@ -44,12 +51,12 @@ const CasesContext = createContext<CasesContextType | null>(null);
 
 export function CasesProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const [cases, setCases] = useState<Case[]>([]);
-  const [messages, setMessages] = useState<Record<string, Message[]>>({});
-  const [deadlines, setDeadlines] = useState<Deadline[]>([]);
-  const [sources, setSources] = useState<VerifiedAuthority[]>([]);
+  const [cases, setCases]               = useState<Case[]>([]);
+  const [messages, setMessages]         = useState<Record<string, Message[]>>({});
+  const [deadlines, setDeadlines]       = useState<Deadline[]>([]);
+  const [sources, setSources]           = useState<VerifiedAuthority[]>([]);
   const [activeCaseId, setActiveCaseIdState] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading]       = useState(true);
 
   useEffect(() => {
     if (!user) {
@@ -103,10 +110,12 @@ export function CasesProvider({ children }: { children: ReactNode }) {
   );
 
   const createCase = useCallback(
-    async (data: Omit<Case, 'id' | 'createdAt' | 'intakeTurnIndex'>): Promise<Case> => {
+    async (data: CreateCaseInput): Promise<Case> => {
       const newCase: Case = {
-        ...data,
         id: genId(),
+        // Empty string = no user-provided title; will be auto-generated after intake
+        title: data.title?.trim() || '',
+        caseType: data.caseType,
         createdAt: new Date().toISOString(),
         intakeTurnIndex: 0,
       };
@@ -122,7 +131,7 @@ export function CasesProvider({ children }: { children: ReactNode }) {
         createdAt: new Date().toISOString(),
       };
 
-      const updatedCases = [newCase, ...cases];
+      const updatedCases    = [newCase, ...cases];
       const updatedMessages = { ...messages, [newCase.id]: [openingMessage] };
 
       setCases(updatedCases);
@@ -190,9 +199,22 @@ export function CasesProvider({ children }: { children: ReactNode }) {
         ? [...existing, userMessage, navigatorMessage]
         : [...existing, userMessage];
 
+      // ── Auto-title ──────────────────────────────────────────────────────────
+      // Trigger after the user's SECOND response (nextTurnIndex === 2) when we
+      // have two data points to build a meaningful title from.
+      // Only fires when no user-supplied title was given (title === '').
+      let updatedTitle = targetCase.title;
+      if (nextTurnIndex === 2 && !targetCase.title) {
+        // Collect the two user responses in order
+        const userResponses = [...existing, userMessage]
+          .filter((m) => m.role === 'user')
+          .map((m) => m.content);
+        updatedTitle = generateCaseTitle(targetCase.caseType, userResponses);
+      }
+
       const updatedCases = cases.map((c) =>
         c.id === caseId
-          ? { ...c, intakeTurnIndex: newIntakeTurnIndex, lastMessageAt: now }
+          ? { ...c, title: updatedTitle, intakeTurnIndex: newIntakeTurnIndex, lastMessageAt: now }
           : c,
       );
       const updatedMessages = { ...messages, [caseId]: newCaseMsgs };
