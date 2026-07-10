@@ -76,6 +76,7 @@ const intakeScripts: Record<CaseType, IntakeTurn[]> = {
         { id: 'experian', label: 'Experian', subtitle: '' },
         { id: 'transunion', label: 'TransUnion', subtitle: '' },
         { id: 'all_three', label: 'All three of them', subtitle: '' },
+        { id: 'all_three_plus', label: 'All three — and the company reporting it', subtitle: 'e.g. Navy Federal, Capital One, a debt collector' },
         { id: 'not_sure_bureau', label: "I'm not sure which ones", subtitle: "That's okay — I'll show you how to check" },
       ],
     },

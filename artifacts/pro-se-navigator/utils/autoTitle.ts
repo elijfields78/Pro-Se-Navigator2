@@ -39,7 +39,9 @@ export function generateCaseTitle(caseType: CaseType, userResponses: string[]): 
     case 'fcra': {
       // Turn 1: which bureau  |  Turn 2: what kind of error
       let bureau: string;
-      if (first.includes('all three') || first.includes('all 3'))
+      if (first.includes('and the company') || first.includes('plus'))
+        bureau = 'All 3 Bureaus + Furnisher';
+      else if (first.includes('all three') || first.includes('all 3'))
         bureau = 'All 3 Bureaus';
       else if (first.includes('equifax'))
         bureau = 'Equifax';
