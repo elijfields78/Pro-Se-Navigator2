@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -21,11 +21,20 @@ import * as Haptics from 'expo-haptics';
 export default function LoginScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { signIn } = useAuth();
-  const [email, setEmail] = useState('');
+  const { signIn, signInWithApple } = useAuth();
+  const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [showPw, setShowPw] = useState(false);
+  const [loading, setLoading]   = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
+  const [showPw, setShowPw]     = useState(false);
+  const [appleAvailable, setAppleAvailable] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    import('expo-apple-authentication').then((AppleAuth) => {
+      AppleAuth.isAvailableAsync().then(setAppleAvailable).catch(() => {});
+    });
+  }, []);
 
   const handleSignIn = async () => {
     if (!email.trim() || !password) {
@@ -41,6 +50,23 @@ export default function LoginScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    setAppleLoading(true);
+    try {
+      const signedIn = await signInWithApple();
+      // Only fire success haptic when Apple actually signed the user in.
+      // `false` means the user canceled the sheet — no haptic, no alert.
+      if (signedIn) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch (e: any) {
+      Alert.alert('Apple Sign In failed', e.message || 'Please try again.');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setAppleLoading(false);
     }
   };
 
@@ -102,6 +128,7 @@ export default function LoginScreen() {
             </Pressable>
           </View>
 
+          {/* Primary sign-in */}
           <Pressable
             onPress={handleSignIn}
             disabled={loading}
@@ -117,6 +144,31 @@ export default function LoginScreen() {
               <Text style={[styles.primaryBtnText, { color: colors.amberText }]}>Sign in</Text>
             )}
           </Pressable>
+
+          {/* Sign in with Apple — iOS only, shown when available */}
+          {appleAvailable && (
+            <Pressable
+              onPress={handleAppleSignIn}
+              disabled={appleLoading}
+              style={({ pressed }) => [
+                styles.appleBtn,
+                { borderColor: colors.border, backgroundColor: colors.surface },
+                (pressed || appleLoading) && { opacity: 0.7 },
+              ]}
+            >
+              {appleLoading ? (
+                <ActivityIndicator color={colors.text} />
+              ) : (
+                <>
+                  {/* Apple logo rendered as text — SF Symbol not available cross-platform */}
+                  <Text style={[styles.appleLogo, { color: colors.text }]}></Text>
+                  <Text style={[styles.appleBtnText, { color: colors.text }]}>
+                    Sign in with Apple
+                  </Text>
+                </>
+              )}
+            </Pressable>
+          )}
 
           <Pressable onPress={() => router.push('/(auth)/register')} style={styles.switchLink}>
             <Text style={[styles.switchText, { color: colors.textSecondary }]}>
@@ -177,6 +229,24 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   primaryBtnText: {
+    fontSize: 16,
+    fontFamily: 'Inter_500Medium',
+  },
+  appleBtn: {
+    height: 52,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  appleLogo: {
+    fontSize: 18,
+    lineHeight: 22,
+    fontFamily: 'Inter_400Regular',
+  },
+  appleBtnText: {
     fontSize: 16,
     fontFamily: 'Inter_500Medium',
   },

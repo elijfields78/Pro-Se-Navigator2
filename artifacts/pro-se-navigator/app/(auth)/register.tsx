@@ -66,7 +66,7 @@ export default function RegisterScreen() {
         <View style={styles.heading}>
           <Text style={[styles.title, { color: colors.text }]}>Create an account</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Your cases are private and stored on this device.
+            Your cases are encrypted and synced securely to the cloud.
           </Text>
         </View>
 

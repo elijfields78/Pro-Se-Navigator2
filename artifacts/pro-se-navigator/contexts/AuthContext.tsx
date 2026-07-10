@@ -1,13 +1,14 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  ReactNode,
+} from 'react';
+import { AppState } from 'react-native';
+import { supabase } from '@/lib/supabase';
 import { User } from './types';
-
-const AUTH_KEY = '@psn:auth';
-const USERS_KEY = '@psn:users';
-
-interface StoredUser extends User {
-  password: string;
-}
 
 interface AuthContextType {
   user: User | null;
@@ -15,67 +16,153 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name?: string) => Promise<void>;
   signOut: () => Promise<void>;
+  /** Returns true if sign-in completed, false if the user canceled the Apple sheet. */
+  signInWithApple: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
+
+/** Map a Supabase Session user to our internal User shape. */
+function sessionToUser(sbUser: { id: string; email?: string; user_metadata?: Record<string, any> }): User {
+  return {
+    id: sbUser.id,
+    email: sbUser.email ?? '',
+    name:
+      sbUser.user_metadata?.full_name ??
+      sbUser.user_metadata?.name ??
+      undefined,
+  };
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const stored = await AsyncStorage.getItem(AUTH_KEY);
-        if (stored) setUser(JSON.parse(stored));
-      } catch {
-        // ignore
-      } finally {
-        setIsLoading(false);
+    // Restore session on mount
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ? sessionToUser(session.user) : null);
+      setIsLoading(false);
+    });
+
+    // Subscribe to auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ? sessionToUser(session.user) : null);
+    });
+
+    // Refresh token when app returns to foreground
+    const appStateSub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        supabase.auth.startAutoRefresh();
+      } else {
+        supabase.auth.stopAutoRefresh();
       }
-    })();
+    });
+
+    return () => {
+      subscription.unsubscribe();
+      appStateSub.remove();
+    };
   }, []);
 
-  const signIn = async (email: string, password: string) => {
-    const trimmedEmail = email.toLowerCase().trim();
-    if (!trimmedEmail || !password) throw new Error('Email and password are required.');
-    const raw = await AsyncStorage.getItem(USERS_KEY);
-    const users: StoredUser[] = raw ? JSON.parse(raw) : [];
-    const found = users.find((u) => u.email === trimmedEmail);
-    if (!found) throw new Error('No account found with that email. Please create one.');
-    if (found.password !== password) throw new Error('Incorrect password.');
-    const { password: _pw, ...userObj } = found;
-    setUser(userObj);
-    await AsyncStorage.setItem(AUTH_KEY, JSON.stringify(userObj));
-  };
+  const signIn = useCallback(async (email: string, password: string) => {
+    const trimmed = email.toLowerCase().trim();
+    if (!trimmed || !password) throw new Error('Email and password are required.');
 
-  const signUp = async (email: string, password: string, name?: string) => {
-    const trimmedEmail = email.toLowerCase().trim();
-    if (!trimmedEmail || !password) throw new Error('Email and password are required.');
-    if (password.length < 8) throw new Error('Password must be at least 8 characters.');
-    const raw = await AsyncStorage.getItem(USERS_KEY);
-    const users: StoredUser[] = raw ? JSON.parse(raw) : [];
-    if (users.find((u) => u.email === trimmedEmail)) {
-      throw new Error('An account already exists with that email.');
+    const { error } = await supabase.auth.signInWithPassword({
+      email: trimmed,
+      password,
+    });
+    if (error) {
+      // Translate Supabase error messages to user-friendly ones
+      if (error.message.toLowerCase().includes('invalid login credentials')) {
+        throw new Error('Incorrect email or password.');
+      }
+      throw new Error(error.message);
     }
-    const newUser: User = {
-      id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
-      email: trimmedEmail,
-      name: name?.trim() || undefined,
-    };
-    users.push({ ...newUser, password });
-    await AsyncStorage.setItem(USERS_KEY, JSON.stringify(users));
-    setUser(newUser);
-    await AsyncStorage.setItem(AUTH_KEY, JSON.stringify(newUser));
-  };
+  }, []);
 
-  const signOut = async () => {
-    setUser(null);
-    await AsyncStorage.removeItem(AUTH_KEY);
-  };
+  const signUp = useCallback(async (email: string, password: string, name?: string) => {
+    const trimmed = email.toLowerCase().trim();
+    if (!trimmed || !password) throw new Error('Email and password are required.');
+    if (password.length < 8) throw new Error('Password must be at least 8 characters.');
+
+    const { error } = await supabase.auth.signUp({
+      email: trimmed,
+      password,
+      options: {
+        data: { full_name: name?.trim() || undefined },
+      },
+    });
+    if (error) {
+      if (error.message.toLowerCase().includes('already registered')) {
+        throw new Error('An account already exists with that email.');
+      }
+      throw new Error(error.message);
+    }
+  }, []);
+
+  const signOut = useCallback(async () => {
+    await supabase.auth.signOut();
+  }, []);
+
+  /**
+   * Sign in with Apple using expo-apple-authentication.
+   * Requires Apple configured as an OAuth provider in the Supabase dashboard.
+   * See: supabase/migrations/001_initial.sql for setup instructions.
+   */
+  /**
+   * Sign in with Apple.
+   * Returns true on successful sign-in, false if the user canceled.
+   * Throws on real errors (e.g. network failure, Supabase error).
+   */
+  const signInWithApple = useCallback(async (): Promise<boolean> => {
+    try {
+      // Lazy imports — only available on iOS
+      const AppleAuthentication = await import('expo-apple-authentication');
+      const Crypto = await import('expo-crypto');
+
+      // Generate a cryptographically secure nonce for replay-attack prevention.
+      // getRandomBytesAsync uses the OS CSPRNG (not Math.random).
+      const randomBytes = await Crypto.getRandomBytesAsync(32);
+      const rawNonce = Array.from(randomBytes)
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+
+      const hashedNonce = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        rawNonce,
+      );
+
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+        nonce: hashedNonce,
+      });
+
+      if (!credential.identityToken) {
+        throw new Error('Apple Sign In returned no identity token.');
+      }
+
+      const { error } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: credential.identityToken,
+        nonce: rawNonce,
+      });
+
+      if (error) throw new Error(error.message);
+      return true;
+    } catch (err: any) {
+      // ERR_REQUEST_CANCELED means the user dismissed the sheet — not a real error
+      if (err?.code === 'ERR_REQUEST_CANCELED') return false;
+      throw err;
+    }
+  }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, isLoading, signIn, signUp, signOut, signInWithApple }}>
       {children}
     </AuthContext.Provider>
   );

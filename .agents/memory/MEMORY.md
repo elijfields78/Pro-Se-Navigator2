@@ -1,0 +1,1 @@
+- [Phase 2 Supabase backend](phase2-supabase.md) — auth replaced with Supabase, CasesContext uses Supabase tables with RLS; see file for schema, env var setup, and Apple auth notes

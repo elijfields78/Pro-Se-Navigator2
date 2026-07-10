@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { FlatList, View, StyleSheet } from 'react-native';
+import { FlatList, View, StyleSheet, Alert } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import AIMessage from './AIMessage';
 import UserMessage from './UserMessage';
@@ -16,12 +16,22 @@ export default function CaseChat({ caseId, messages }: CaseChatProps) {
   const { sendMessage } = useCases();
 
   const handleSend = useCallback(
-    (text: string) => sendMessage(caseId, text),
+    (text: string) => {
+      sendMessage(caseId, text).catch((err) => {
+        console.error('[CaseChat] sendMessage error:', err);
+        Alert.alert('Failed to send', 'Your message could not be saved. Please try again.');
+      });
+    },
     [caseId, sendMessage],
   );
 
   const handleNextStep = useCallback(
-    (step: NextStep) => sendMessage(caseId, step.label),
+    (step: NextStep) => {
+      sendMessage(caseId, step.label).catch((err) => {
+        console.error('[CaseChat] sendMessage error:', err);
+        Alert.alert('Failed to send', 'Your selection could not be saved. Please try again.');
+      });
+    },
     [caseId, sendMessage],
   );
 
