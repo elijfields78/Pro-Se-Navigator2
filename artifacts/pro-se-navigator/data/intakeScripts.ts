@@ -8,10 +8,60 @@ export interface IntakeTurn {
 export const WRAP_UP_MESSAGE =
   `Thanks — that's enough to get started.\n\nI now have a picture of your situation. From here I can help you figure out next steps, understand what documents matter, and prepare what you need to file or respond.\n\nWhat would you like to do first?`;
 
+// ── Document type options ─────────────────────────────────────────────────────
+// Shown when the user asks to draft something. Each option creates a stub
+// artifact and immediately triggers the deadline calculation flow.
+export const DRAFT_TYPE_NEXT_STEPS: NextStep[] = [
+  {
+    id: 'draft_answer',
+    label: "Defendant's Answer",
+    subtitle: 'Response to a complaint',
+    action: 'create_draft',
+    actionData: { title: "Defendant's Answer", kind: 'motion' },
+  },
+  {
+    id: 'draft_complaint',
+    label: 'Verified Complaint',
+    subtitle: 'To initiate a lawsuit',
+    action: 'create_draft',
+    actionData: { title: 'Verified Complaint', kind: 'motion' },
+  },
+  {
+    id: 'draft_motion_dismiss',
+    label: 'Motion to Dismiss',
+    subtitle: 'Challenge the complaint or counts',
+    action: 'create_draft',
+    actionData: { title: 'Motion to Dismiss', kind: 'motion' },
+  },
+  {
+    id: 'draft_dispute_letter',
+    label: 'Dispute Letter',
+    subtitle: 'Credit report or debt dispute (FCRA)',
+    action: 'create_draft',
+    actionData: { title: 'Dispute Letter', kind: 'letter' },
+  },
+  {
+    id: 'draft_motion_other',
+    label: 'Other Motion or Pleading',
+    subtitle: 'Injunction, opposition, summary judgment…',
+    action: 'create_draft',
+    actionData: { title: 'Motion', kind: 'motion' },
+  },
+];
+
+const DRAFT_FOLLOW_UP_PROMPT =
+  `What type of document are you working on?\n\nI'll create a placeholder draft and calculate the filing deadline using Federal Rule 6.\n\n(Full AI drafting arrives in Phase 6 — the deadline calculation works right now.)`;
+
 export const WRAP_UP_NEXT_STEPS: NextStep[] = [
   { id: 'what_happens_next', label: 'What happens next in my case?', subtitle: 'Walk me through the process' },
   { id: 'check_deadlines', label: 'Do I have any deadlines?', subtitle: 'Important dates to know' },
-  { id: 'draft_something', label: 'Help me write something', subtitle: 'Letter, response, or form' },
+  {
+    id: 'draft_something',
+    label: 'Help me write something',
+    subtitle: 'Letter, response, or form',
+    followUpPrompt: DRAFT_FOLLOW_UP_PROMPT,
+    followUpNextSteps: DRAFT_TYPE_NEXT_STEPS,
+  },
   { id: 'explain_options', label: 'What are my options?', subtitle: 'Explain what I can do' },
 ];
 
@@ -20,7 +70,13 @@ export const POST_INTAKE_RESPONSE =
 
 export const POST_INTAKE_NEXT_STEPS: NextStep[] = [
   { id: 'has_deadline', label: 'Yes — I have a deadline coming up', subtitle: 'Tell me about it' },
-  { id: 'need_to_draft', label: 'I need to write something', subtitle: 'Letter, response, or form' },
+  {
+    id: 'need_to_draft',
+    label: 'I need to write something',
+    subtitle: 'Letter, response, or form',
+    followUpPrompt: DRAFT_FOLLOW_UP_PROMPT,
+    followUpNextSteps: DRAFT_TYPE_NEXT_STEPS,
+  },
   { id: 'want_research', label: 'Help me understand my rights', subtitle: '' },
   { id: 'nothing_urgent', label: 'Nothing urgent right now', subtitle: '' },
 ];

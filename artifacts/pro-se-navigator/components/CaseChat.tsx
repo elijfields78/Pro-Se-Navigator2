@@ -4,7 +4,8 @@ import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import AIMessage from './AIMessage';
 import UserMessage from './UserMessage';
 import ChatInput from './ChatInput';
-import { Message, NextStep } from '@/contexts/types';
+import DeadlineDateEntry from './DeadlineDateEntry';
+import { Message, NextStep, PendingDeadlineEntry } from '@/contexts/types';
 import { useCases } from '@/contexts/CasesContext';
 
 interface CaseChatProps {
@@ -13,7 +14,14 @@ interface CaseChatProps {
 }
 
 export default function CaseChat({ caseId, messages }: CaseChatProps) {
-  const { sendMessage } = useCases();
+  const { sendMessage, submitDeadlineTriggerDate, cases } = useCases();
+
+  // Resolve pending deadline entry for this case
+  const caseItem = cases.find((c) => c.id === caseId);
+  const pendingEntry: PendingDeadlineEntry | null =
+    caseItem?.pendingFollowUp?.kind === 'deadline_date_entry'
+      ? (caseItem.pendingFollowUp as PendingDeadlineEntry)
+      : null;
 
   const handleSend = useCallback(
     (text: string) => {
@@ -35,11 +43,18 @@ export default function CaseChat({ caseId, messages }: CaseChatProps) {
     [caseId, sendMessage],
   );
 
+  const handleSubmitDeadlineDate = useCallback(
+    async (dateStr: string) => {
+      await submitDeadlineTriggerDate(caseId, dateStr);
+    },
+    [caseId, submitDeadlineTriggerDate],
+  );
+
   // Inverted FlatList — data must be reversed (newest-first in the array).
   const reversedMessages = [...messages].reverse();
 
-  // Only the most-recent navigator message gets interactive next-step buttons.
-  // All previous messages have their options hidden so they don't pile up.
+  // Only the most-recent navigator message gets interactive next-step buttons
+  // and the Regenerate/Copy actions. Previous messages are static.
   const lastNavId = reversedMessages.find((m) => m.role === 'navigator')?.id ?? null;
 
   const handleRegenerate = useCallback(() => {
@@ -53,13 +68,21 @@ export default function CaseChat({ caseId, messages }: CaseChatProps) {
 
   const renderItem = ({ item }: { item: Message }) => {
     if (item.role === 'navigator') {
-      const isLatest = item.id === lastNavId;
+      const isLatest   = item.id === lastNavId;
+      // The latest navigator message is styled as an "estimate" when the
+      // case is waiting for a deadline trigger date. This signals to the
+      // user that the content is provisional.
+      const isEstimate = isLatest && pendingEntry !== null;
+
       return (
         <AIMessage
           content={item.content}
-          nextSteps={isLatest ? item.nextSteps : undefined}
-          onNextStepPress={isLatest ? handleNextStep : undefined}
-          onRegenerate={isLatest ? handleRegenerate : undefined}
+          // Suppress next-step buttons when in deadline date entry mode —
+          // DeadlineDateEntry is the active input instead.
+          nextSteps={isLatest && !isEstimate ? item.nextSteps : undefined}
+          onNextStepPress={isLatest && !isEstimate ? handleNextStep : undefined}
+          onRegenerate={isLatest && !isEstimate ? handleRegenerate : undefined}
+          isEstimate={isEstimate}
         />
       );
     }
@@ -84,7 +107,18 @@ export default function CaseChat({ caseId, messages }: CaseChatProps) {
         scrollEnabled={!!reversedMessages.length}
         ListHeaderComponent={<View style={{ height: 16 }} />}
       />
-      <ChatInput onSend={handleSend} />
+
+      {/* ── Bottom input area ── */}
+      {pendingEntry ? (
+        <DeadlineDateEntry
+          triggerDateLabel={pendingEntry.triggerDateLabel}
+          estimatedDays={pendingEntry.estimatedDays}
+          artifactTitle={pendingEntry.artifactTitle}
+          onSubmit={handleSubmitDeadlineDate}
+        />
+      ) : (
+        <ChatInput onSend={handleSend} />
+      )}
     </KeyboardAvoidingView>
   );
 }

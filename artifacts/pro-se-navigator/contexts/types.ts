@@ -1,5 +1,68 @@
 export type CaseType = 'general' | 'fcra' | 'traffic' | 'ifp';
 
+export interface NextStep {
+  id: string;
+  label: string;
+  subtitle?: string;
+  /**
+   * If set, tapping this option shows this text as a navigator follow-up
+   * question instead of immediately advancing to the next intake turn.
+   * The user's free-text reply then resumes intake at the next turn.
+   */
+  followUpPrompt?: string;
+  /**
+   * When a followUpPrompt is set, these nextSteps are attached to the
+   * follow-up navigator message (e.g. document-type options).
+   */
+  followUpNextSteps?: NextStep[];
+  /**
+   * Special action to perform when this step is selected.
+   * 'create_draft' → creates a stub artifact and triggers the deadline flow.
+   */
+  action?: 'create_draft';
+  /** Payload for the action */
+  actionData?: { title: string; kind: string };
+}
+
+export interface Message {
+  id: string;
+  caseId: string;
+  role: 'navigator' | 'user';
+  content: string;
+  nextSteps?: NextStep[];
+  createdAt: string;
+}
+
+// ── Pending follow-up discriminated union ────────────────────────────────────
+
+/**
+ * Intake follow-up: pauses intake and asks a clarifying question.
+ * The user's next free-text reply resumes at resumeTurnIndex.
+ */
+export interface PendingIntakeFollowUp {
+  kind: 'intake_follow_up';
+  prompt: string;
+  resumeTurnIndex: number;
+}
+
+/**
+ * Deadline date entry: the Navigator has posted an estimate and is waiting
+ * for the user to provide the real trigger date so the app can compute the
+ * exact deadline deterministically via Rule 6.
+ */
+export interface PendingDeadlineEntry {
+  kind: 'deadline_date_entry';
+  artifactId: string;
+  artifactTitle: string;
+  estimatedDays: number;
+  ruleBasis: string;
+  description: string;
+  triggerDateLabel: string;
+  reasoning: string;
+}
+
+export type PendingFollowUp = PendingIntakeFollowUp | PendingDeadlineEntry;
+
 export interface Case {
   id: string;
   title: string;
@@ -13,35 +76,7 @@ export interface Case {
   lastMessageAt?: string;
   /** Index into the intake script. Equals script.length when intake is complete. */
   intakeTurnIndex: number;
-  /**
-   * When a NextStep has a followUpPrompt, we pause normal intake progression
-   * and ask the follow-up. The next user message resolves it and resumes at resumeTurnIndex.
-   */
-  pendingFollowUp?: {
-    prompt: string;
-    resumeTurnIndex: number;
-  };
-}
-
-export interface NextStep {
-  id: string;
-  label: string;
-  subtitle?: string;
-  /**
-   * If set, tapping this option shows this text as a navigator follow-up
-   * question instead of immediately advancing to the next intake turn.
-   * The user's free-text reply then resumes intake at the next turn.
-   */
-  followUpPrompt?: string;
-}
-
-export interface Message {
-  id: string;
-  caseId: string;
-  role: 'navigator' | 'user';
-  content: string;
-  nextSteps?: NextStep[];
-  createdAt: string;
+  pendingFollowUp?: PendingFollowUp;
 }
 
 export interface VerifiedAuthority {

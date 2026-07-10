@@ -13,6 +13,12 @@ interface AIMessageProps {
   onNextStepPress?: (step: NextStep) => void;
   /** Called when the user taps Regenerate. Undefined = button not shown. */
   onRegenerate?: () => void;
+  /**
+   * When true, renders the message with an amber "Estimate" badge instead of
+   * the normal "Navigator" label. Action buttons (Copy, Regenerate) are hidden
+   * because the user's next action is entering a date in DeadlineDateEntry.
+   */
+  isEstimate?: boolean;
 }
 
 export default function AIMessage({
@@ -20,6 +26,7 @@ export default function AIMessage({
   nextSteps,
   onNextStepPress,
   onRegenerate,
+  isEstimate = false,
 }: AIMessageProps) {
   const colors = useColors();
   const [copied, setCopied] = useState(false);
@@ -33,16 +40,39 @@ export default function AIMessage({
 
   return (
     <View style={styles.container}>
-      {/* Navigator label with compass icon */}
-      <View style={styles.label}>
-        <Feather name="compass" size={11} color={colors.primary} />
-        <Text style={[styles.labelText, { color: colors.primary }]}>Navigator</Text>
-      </View>
+      {/* ── Label row ── */}
+      {isEstimate ? (
+        // Amber "Estimate" badge — signals provisional content
+        <View style={styles.label}>
+          <Feather name="clock" size={11} color={colors.deadlineText} />
+          <Text style={[styles.labelText, { color: colors.deadlineText }]}>
+            Estimate
+          </Text>
+          <View style={[styles.estimatePill, { backgroundColor: colors.deadlineBg }]}>
+            <Text style={[styles.estimatePillText, { color: colors.deadlineText }]}>
+              verify with your court
+            </Text>
+          </View>
+        </View>
+      ) : (
+        // Standard Navigator label
+        <View style={styles.label}>
+          <Feather name="compass" size={11} color={colors.primary} />
+          <Text style={[styles.labelText, { color: colors.primary }]}>Navigator</Text>
+        </View>
+      )}
 
-      {/* Message text — flowing plain text, no bubble */}
-      <Text style={[styles.text, { color: colors.text }]}>{content}</Text>
+      {/* ── Message text — flowing plain text, no bubble ── */}
+      <Text
+        style={[
+          styles.text,
+          { color: isEstimate ? colors.textSecondary : colors.text },
+        ]}
+      >
+        {content}
+      </Text>
 
-      {/* Tappable next-step rows */}
+      {/* ── Tappable next-step rows ── */}
       {nextSteps && nextSteps.length > 0 && (
         <View style={[styles.nextSteps, { borderTopColor: colors.border }]}>
           {nextSteps.map((step, i) => (
@@ -56,39 +86,41 @@ export default function AIMessage({
         </View>
       )}
 
-      {/* ── Message actions ── */}
-      <View style={styles.actions}>
-        <Pressable
-          style={({ pressed }) => [styles.actionBtn, pressed && { opacity: 0.5 }]}
-          onPress={handleCopy}
-          hitSlop={6}
-        >
-          <Feather
-            name={copied ? 'check' : 'copy'}
-            size={13}
-            color={copied ? colors.primary : colors.textMuted}
-          />
-          <Text
-            style={[
-              styles.actionLabel,
-              { color: copied ? colors.primary : colors.textMuted },
-            ]}
-          >
-            {copied ? 'Copied' : 'Copy'}
-          </Text>
-        </Pressable>
-
-        {onRegenerate != null && (
+      {/* ── Message actions — hidden for estimate messages ── */}
+      {!isEstimate && (
+        <View style={styles.actions}>
           <Pressable
             style={({ pressed }) => [styles.actionBtn, pressed && { opacity: 0.5 }]}
-            onPress={onRegenerate}
+            onPress={handleCopy}
             hitSlop={6}
           >
-            <Feather name="refresh-cw" size={13} color={colors.textMuted} />
-            <Text style={[styles.actionLabel, { color: colors.textMuted }]}>Regenerate</Text>
+            <Feather
+              name={copied ? 'check' : 'copy'}
+              size={13}
+              color={copied ? colors.primary : colors.textMuted}
+            />
+            <Text
+              style={[
+                styles.actionLabel,
+                { color: copied ? colors.primary : colors.textMuted },
+              ]}
+            >
+              {copied ? 'Copied' : 'Copy'}
+            </Text>
           </Pressable>
-        )}
-      </View>
+
+          {onRegenerate != null && (
+            <Pressable
+              style={({ pressed }) => [styles.actionBtn, pressed && { opacity: 0.5 }]}
+              onPress={onRegenerate}
+              hitSlop={6}
+            >
+              <Feather name="refresh-cw" size={13} color={colors.textMuted} />
+              <Text style={[styles.actionLabel, { color: colors.textMuted }]}>Regenerate</Text>
+            </Pressable>
+          )}
+        </View>
+      )}
     </View>
   );
 }
@@ -110,6 +142,17 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_500Medium',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
+  },
+  estimatePill: {
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginLeft: 4,
+  },
+  estimatePillText: {
+    fontSize: 10,
+    fontFamily: 'Inter_500Medium',
+    letterSpacing: 0.3,
   },
   text: {
     fontSize: 15,

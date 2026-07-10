@@ -1,1 +1,2 @@
 - [Phase 2 Supabase backend](phase2-supabase.md) — auth replaced with Supabase, CasesContext uses Supabase tables with RLS; see file for schema, env var setup, and Apple auth notes
+- [Deadline generation architecture](deadline-generation.md) — Rule 6 calculator, PendingFollowUp discriminated union, addArtifact→estimate→DeadlineDateEntry→confirmed flow

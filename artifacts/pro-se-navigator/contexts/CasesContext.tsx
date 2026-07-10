@@ -7,7 +7,17 @@ import React, {
   ReactNode,
 } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Case, CaseType, Message, Deadline, VerifiedAuthority, CaseArtifact } from './types';
+import {
+  Case,
+  CaseType,
+  Message,
+  Deadline,
+  VerifiedAuthority,
+  CaseArtifact,
+  ArtifactKind,
+  PendingDeadlineEntry,
+  PendingIntakeFollowUp,
+} from './types';
 import { useAuth } from './AuthContext';
 import intakeScripts, {
   WRAP_UP_MESSAGE,
@@ -16,6 +26,12 @@ import intakeScripts, {
   POST_INTAKE_NEXT_STEPS,
 } from '@/data/intakeScripts';
 import { generateCaseTitle } from '@/utils/autoTitle';
+import { lookupDeadlineRule } from '@/lib/deadlineRules';
+import {
+  computeRule6Deadline,
+  formatDeadlineDate,
+  parseUserDate,
+} from '@/lib/rule6';
 
 // ── ID generator ────────────────────────────────────────────────────────────
 function genId(): string {
@@ -24,6 +40,12 @@ function genId(): string {
 
 // ── DB ↔ App type mappers ───────────────────────────────────────────────────
 function dbToCase(row: Record<string, any>): Case {
+  let pendingFollowUp = row.pending_follow_up ?? undefined;
+  // Migrate old pendingFollowUp data that predates the discriminated union.
+  // Old shape: { prompt: string; resumeTurnIndex: number } (no kind field).
+  if (pendingFollowUp && !pendingFollowUp.kind && 'prompt' in pendingFollowUp) {
+    pendingFollowUp = { ...pendingFollowUp, kind: 'intake_follow_up' } as PendingIntakeFollowUp;
+  }
   return {
     id: row.id,
     title: row.title ?? '',
@@ -35,7 +57,7 @@ function dbToCase(row: Record<string, any>): Case {
     createdAt: row.created_at,
     lastMessageAt: row.last_message_at,
     intakeTurnIndex: row.intake_turn_index ?? 0,
-    pendingFollowUp: row.pending_follow_up ?? undefined,
+    pendingFollowUp,
   };
 }
 
@@ -140,21 +162,26 @@ interface CasesContextType {
   getCaseMessages: (caseId: string) => Message[];
   addDeadline: (deadline: Omit<Deadline, 'id' | 'createdAt'>) => void;
   addSource: (source: Omit<VerifiedAuthority, 'id' | 'createdAt'>) => void;
-  addArtifact: (artifact: Omit<CaseArtifact, 'id' | 'createdAt'>) => void;
+  /** Creates an artifact and — for non-note kinds — posts a deadline estimate
+   *  in the chat and sets pendingFollowUp so the user can enter the trigger date. */
+  addArtifact: (artifact: Omit<CaseArtifact, 'id' | 'createdAt'>) => Promise<void>;
   deleteArtifact: (id: string) => void;
+  /** Called from DeadlineDateEntry once the user has entered the trigger date.
+   *  Computes the Rule 6 deadline, saves it, and posts a confirmation message. */
+  submitDeadlineTriggerDate: (caseId: string, triggerDateStr: string) => Promise<void>;
 }
 
 const CasesContext = createContext<CasesContextType | null>(null);
 
 export function CasesProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const [cases, setCases]                   = useState<Case[]>([]);
-  const [messages, setMessages]             = useState<Record<string, Message[]>>({});
-  const [deadlines, setDeadlines]           = useState<Deadline[]>([]);
-  const [sources, setSources]               = useState<VerifiedAuthority[]>([]);
-  const [artifacts, setArtifacts]           = useState<CaseArtifact[]>([]);
+  const [cases, setCases]                    = useState<Case[]>([]);
+  const [messages, setMessages]              = useState<Record<string, Message[]>>({});
+  const [deadlines, setDeadlines]            = useState<Deadline[]>([]);
+  const [sources, setSources]                = useState<VerifiedAuthority[]>([]);
+  const [artifacts, setArtifacts]            = useState<CaseArtifact[]>([]);
   const [activeCaseId, setActiveCaseIdState] = useState<string | null>(null);
-  const [isLoading, setIsLoading]           = useState(true);
+  const [isLoading, setIsLoading]            = useState(true);
 
   // ── Load all data when user changes ───────────────────────────────────────
   useEffect(() => {
@@ -259,12 +286,253 @@ export function CasesProvider({ children }: { children: ReactNode }) {
     [user],
   );
 
+  // ── addArtifact ───────────────────────────────────────────────────────────
+  /**
+   * Saves an artifact to DB.
+   * For non-note artifacts: posts a deadline estimate navigator message in the
+   * chat and sets pendingFollowUp so the DeadlineDateEntry widget appears.
+   * For notes: no deadline flow is triggered.
+   */
+  const addArtifact = useCallback(
+    async (data: Omit<CaseArtifact, 'id' | 'createdAt'>): Promise<void> => {
+      if (!user) return;
+
+      const artifact: CaseArtifact = {
+        ...data,
+        id: genId(),
+        createdAt: new Date().toISOString(),
+      };
+
+      // Optimistic artifact state
+      setArtifacts((prev) => [artifact, ...prev]);
+
+      // Persist artifact
+      const { error: artErr } = await supabase.from('artifacts').insert({
+        id: artifact.id,
+        case_id: artifact.caseId,
+        user_id: user.id,
+        case_title: artifact.caseTitle,
+        title: artifact.title,
+        content: artifact.content,
+        kind: artifact.kind,
+        created_at: artifact.createdAt,
+      });
+
+      if (artErr) {
+        console.error('[addArtifact] insert:', artErr);
+        // Rollback artifact
+        setArtifacts((prev) => prev.filter((a) => a.id !== artifact.id));
+        return;
+      }
+
+      // Notes don't warrant deadline tracking
+      if (artifact.kind === 'note') return;
+
+      // ── Deadline estimation flow ──────────────────────────────────────────
+      const rule = lookupDeadlineRule(artifact.title, artifact.kind);
+
+      const estimateMsg: Message = {
+        id: genId(),
+        caseId: data.caseId,
+        role: 'navigator',
+        content: [
+          `I've saved "${artifact.title}" to your Artifacts tab.`,
+          ``,
+          `${rule.reasoning}`,
+          ``,
+          `To calculate the exact deadline, I need the ${rule.triggerDateLabel}. Enter it below and I'll run the numbers using Federal Rule 6 — accounting for weekends and federal holidays.`,
+        ].join('\n'),
+        createdAt: new Date(Date.now() + 10).toISOString(),
+      };
+
+      const pendingDeadline: PendingDeadlineEntry = {
+        kind: 'deadline_date_entry',
+        artifactId: artifact.id,
+        artifactTitle: artifact.title,
+        estimatedDays: rule.estimatedDays,
+        ruleBasis: rule.ruleBasis,
+        description: rule.description,
+        triggerDateLabel: rule.triggerDateLabel,
+        reasoning: rule.reasoning,
+      };
+
+      // Optimistic state — use functional setters so we always operate on latest
+      setMessages((prev) => ({
+        ...prev,
+        [data.caseId]: [...(prev[data.caseId] ?? []), estimateMsg],
+      }));
+      setCases((prev) =>
+        prev.map((c) =>
+          c.id === data.caseId
+            ? { ...c, pendingFollowUp: pendingDeadline, lastMessageAt: estimateMsg.createdAt }
+            : c,
+        ),
+      );
+
+      // Persist estimate message + case pending_follow_up.
+      // If either write fails, roll back the optimistic pending state so that
+      // an app restart won't show a stale deadline-entry widget with no DB backing.
+      const [msgRes, caseRes] = await Promise.all([
+        supabase.from('messages').insert(messageToDb(estimateMsg, user.id)),
+        supabase.from('cases').update({
+          pending_follow_up: pendingDeadline,
+          last_message_at: estimateMsg.createdAt,
+        }).eq('id', data.caseId),
+      ]);
+
+      if (msgRes.error || caseRes.error) {
+        const err = msgRes.error ?? caseRes.error;
+        console.error('[addArtifact] estimate persist failed — rolling back pending state:', err);
+        // Remove the optimistic estimate message and pending entry so the UI
+        // doesn't show a deadline widget that won't survive a reload.
+        setMessages((prev) => ({
+          ...prev,
+          [data.caseId]: (prev[data.caseId] ?? []).filter((m) => m.id !== estimateMsg.id),
+        }));
+        setCases((prev) =>
+          prev.map((c) =>
+            c.id === data.caseId ? { ...c, pendingFollowUp: undefined } : c,
+          ),
+        );
+      }
+    },
+    [user],
+  );
+
+  // ── submitDeadlineTriggerDate ──────────────────────────────────────────────
+  /**
+   * Called from DeadlineDateEntry once the user has supplied the trigger date.
+   * Computes the Rule 6 deadline, writes it to the deadlines table, posts a
+   * user message echoing the date and a confirmation navigator message, then
+   * clears pendingFollowUp on the case.
+   *
+   * Throws with a user-visible message on validation failure (e.g. bad date).
+   */
+  const submitDeadlineTriggerDate = useCallback(
+    async (caseId: string, triggerDateStr: string): Promise<void> => {
+      if (!user) return;
+
+      const targetCase = cases.find((c) => c.id === caseId);
+      if (!targetCase) return;
+
+      const pf = targetCase.pendingFollowUp;
+      if (!pf || pf.kind !== 'deadline_date_entry') return;
+
+      // ── Parse & validate ──────────────────────────────────────────────────
+      const triggerDate = parseUserDate(triggerDateStr);
+      if (!triggerDate) {
+        throw new Error('Invalid date format. Please use MM/DD/YYYY — for example: 07/15/2025');
+      }
+
+      // ── Compute deadline ──────────────────────────────────────────────────
+      const dueDate     = computeRule6Deadline(triggerDate, pf.estimatedDays);
+      const formattedDue = formatDeadlineDate(dueDate);
+
+      // ── Create deadline record ────────────────────────────────────────────
+      const deadline: Deadline = {
+        id: genId(),
+        caseId,
+        caseTitle: targetCase.title,
+        description: pf.description,
+        dueDate,
+        ruleBasis: pf.ruleBasis,
+        source: `"${pf.artifactTitle}" — ${pf.triggerDateLabel}: ${triggerDateStr}`,
+        createdAt: new Date().toISOString(),
+      };
+
+      // Persist the deadline FIRST — if this fails we surface the error to the
+      // user so DeadlineDateEntry can stay active (pending state untouched).
+      const { error: deadlineErr } = await supabase.from('deadlines').insert({
+        id: deadline.id,
+        case_id: caseId,
+        user_id: user.id,
+        case_title: deadline.caseTitle,
+        description: deadline.description,
+        due_date: deadline.dueDate,
+        rule_basis: deadline.ruleBasis,
+        source: deadline.source ?? null,
+        created_at: deadline.createdAt,
+      });
+      if (deadlineErr) {
+        console.error('[submitDeadlineTriggerDate] deadline insert:', deadlineErr);
+        throw new Error('Could not save the deadline. Please check your connection and try again.');
+      }
+
+      // Optimistic deadline state (only after confirmed write)
+      setDeadlines((prev) => [deadline, ...prev]);
+
+      // ── Chat messages ─────────────────────────────────────────────────────
+      const now = new Date().toISOString();
+
+      // User message echoing what they entered
+      const userMsg: Message = {
+        id: genId(),
+        caseId,
+        role: 'user',
+        content: `${pf.triggerDateLabel.charAt(0).toUpperCase() + pf.triggerDateLabel.slice(1)}: ${triggerDateStr}`,
+        createdAt: now,
+      };
+
+      // Confirmation message from Navigator
+      const confirmMsg: Message = {
+        id: genId(),
+        caseId,
+        role: 'navigator',
+        content: [
+          `✅ Deadline calculated and saved to your Deadlines tab.`,
+          ``,
+          `${pf.description}`,
+          `Due: ${formattedDue}`,
+          ``,
+          `Rule basis: ${pf.ruleBasis}`,
+          ``,
+          `⚠️ Always confirm this date against your court's local rules before relying on it. Federal Rule 6 is a starting point — local rules can modify the period.`,
+        ].join('\n'),
+        createdAt: new Date(Date.now() + 5).toISOString(),
+      };
+
+      // Clear pending state + add messages
+      setMessages((prev) => ({
+        ...prev,
+        [caseId]: [...(prev[caseId] ?? []), userMsg, confirmMsg],
+      }));
+      setCases((prev) =>
+        prev.map((c) =>
+          c.id === caseId
+            ? { ...c, pendingFollowUp: undefined, lastMessageAt: confirmMsg.createdAt }
+            : c,
+        ),
+      );
+
+      // Persist messages + clear case pending state
+      const [msgRes, caseRes] = await Promise.all([
+        supabase.from('messages').insert([
+          messageToDb(userMsg, user.id),
+          messageToDb(confirmMsg, user.id),
+        ]),
+        supabase.from('cases').update({
+          pending_follow_up: null,
+          last_message_at: confirmMsg.createdAt,
+        }).eq('id', caseId),
+      ]);
+
+      if (msgRes.error) console.error('[submitDeadlineTriggerDate] messages insert:', msgRes.error);
+      if (caseRes.error) console.error('[submitDeadlineTriggerDate] case update:', caseRes.error);
+    },
+    [user, cases],
+  );
+
   // ── sendMessage ───────────────────────────────────────────────────────────
   const sendMessage = useCallback(
     async (caseId: string, content: string): Promise<void> => {
       if (!user) return;
       const targetCase = cases.find((c) => c.id === caseId);
       if (!targetCase) return;
+
+      // ── Guard: deadline date entry mode ───────────────────────────────────
+      // DeadlineDateEntry replaces ChatInput in this mode so sendMessage
+      // shouldn't normally be called — but guard just in case.
+      if (targetCase.pendingFollowUp?.kind === 'deadline_date_entry') return;
 
       const now = new Date().toISOString();
       const userMessage: Message = {
@@ -278,15 +546,51 @@ export function CasesProvider({ children }: { children: ReactNode }) {
       const script   = intakeScripts[targetCase.caseType];
       const existing = messages[caseId] || [];
 
+      // ── Check for action steps first ──────────────────────────────────────
+      // Action steps (e.g. create_draft) are matched by label against the
+      // last Navigator message's nextSteps. They do NOT go through normal intake.
+      const lastNavMsgForAction = [...existing].reverse().find((m) => m.role === 'navigator');
+      const matchedActionStep = lastNavMsgForAction?.nextSteps?.find(
+        (s) => s.label === content && s.action,
+      );
+
+      if (matchedActionStep?.action === 'create_draft' && matchedActionStep.actionData) {
+        const { title, kind } = matchedActionStep.actionData;
+
+        // Persist just the user message; addArtifact posts the navigator reply
+        setMessages((prev) => ({
+          ...prev,
+          [caseId]: [...(prev[caseId] ?? []), userMessage],
+        }));
+        setCases((prev) =>
+          prev.map((c) => (c.id === caseId ? { ...c, lastMessageAt: now } : c)),
+        );
+
+        await supabase.from('messages').insert(messageToDb(userMessage, user.id));
+        await supabase.from('cases').update({ last_message_at: now }).eq('id', caseId);
+
+        // Create the artifact — this posts the estimate message + sets pendingFollowUp
+        await addArtifact({
+          caseId,
+          caseTitle: targetCase.title,
+          title: title || 'Document',
+          content: `[Placeholder draft for "${title}". Full AI generation arrives in Phase 6.]`,
+          kind: kind as ArtifactKind,
+        });
+
+        return;
+      }
+
+      // ── Normal intake + follow-up logic ───────────────────────────────────
       let navigatorMessage: Message | null = null;
       let newIntakeTurnIndex = targetCase.intakeTurnIndex;
       let newPendingFollowUp = targetCase.pendingFollowUp;
 
       // ── Follow-up resolution ───────────────────────────────────────────────
-      if (targetCase.pendingFollowUp) {
+      if (targetCase.pendingFollowUp?.kind === 'intake_follow_up') {
         const resumeIdx = targetCase.pendingFollowUp.resumeTurnIndex;
-        newPendingFollowUp   = undefined;
-        newIntakeTurnIndex   = resumeIdx;
+        newPendingFollowUp  = undefined;
+        newIntakeTurnIndex  = resumeIdx;
 
         if (resumeIdx < script.length) {
           const turn = script[resumeIdx];
@@ -317,14 +621,20 @@ export function CasesProvider({ children }: { children: ReactNode }) {
 
         if (matchedStep?.followUpPrompt) {
           const resumeTurnIndex = targetCase.intakeTurnIndex + 1;
-          newPendingFollowUp = { prompt: matchedStep.followUpPrompt, resumeTurnIndex };
+          newPendingFollowUp = {
+            kind: 'intake_follow_up',
+            prompt: matchedStep.followUpPrompt,
+            resumeTurnIndex,
+          } as PendingIntakeFollowUp;
           navigatorMessage = {
             id: genId(), caseId, role: 'navigator',
             content: matchedStep.followUpPrompt,
+            // Attach document-type options when present on the matched step
+            nextSteps: matchedStep.followUpNextSteps,
             createdAt: new Date(Date.now() + 5).toISOString(),
           };
         } else {
-          // ── Normal intake advancement ────────────────────────────────────────
+          // ── Normal intake advancement ──────────────────────────────────────
           const nextTurnIndex = targetCase.intakeTurnIndex + 1;
           newIntakeTurnIndex  = nextTurnIndex;
 
@@ -401,7 +711,7 @@ export function CasesProvider({ children }: { children: ReactNode }) {
         throw err;
       }
     },
-    [cases, messages, user],
+    [cases, messages, user, addArtifact],
   );
 
   // ── deleteCase ────────────────────────────────────────────────────────────
@@ -515,29 +825,6 @@ export function CasesProvider({ children }: { children: ReactNode }) {
     [user],
   );
 
-  // ── addArtifact ───────────────────────────────────────────────────────────
-  const addArtifact = useCallback(
-    (data: Omit<CaseArtifact, 'id' | 'createdAt'>) => {
-      if (!user) return;
-      const artifact: CaseArtifact = { ...data, id: genId(), createdAt: new Date().toISOString() };
-      setArtifacts((prev) => [artifact, ...prev]);
-
-      supabase.from('artifacts')
-        .insert({
-          id: artifact.id,
-          case_id: artifact.caseId,
-          user_id: user.id,
-          case_title: artifact.caseTitle,
-          title: artifact.title,
-          content: artifact.content,
-          kind: artifact.kind,
-          created_at: artifact.createdAt,
-        })
-        .then(({ error }) => { if (error) console.error('[addArtifact] insert:', error); });
-    },
-    [user],
-  );
-
   // ── deleteArtifact ────────────────────────────────────────────────────────
   const deleteArtifact = useCallback(
     (id: string) => {
@@ -571,6 +858,7 @@ export function CasesProvider({ children }: { children: ReactNode }) {
         addSource,
         addArtifact,
         deleteArtifact,
+        submitDeadlineTriggerDate,
       }}
     >
       {children}
