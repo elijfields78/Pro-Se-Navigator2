@@ -1,0 +1,68 @@
+import React, { useCallback } from 'react';
+import { FlatList, View, StyleSheet } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import AIMessage from './AIMessage';
+import UserMessage from './UserMessage';
+import ChatInput from './ChatInput';
+import { Message, NextStep } from '@/contexts/types';
+import { useCases } from '@/contexts/CasesContext';
+
+interface CaseChatProps {
+  caseId: string;
+  messages: Message[];
+}
+
+export default function CaseChat({ caseId, messages }: CaseChatProps) {
+  const { sendMessage } = useCases();
+
+  const handleSend = useCallback(
+    (text: string) => sendMessage(caseId, text),
+    [caseId, sendMessage],
+  );
+
+  const handleNextStep = useCallback(
+    (step: NextStep) => sendMessage(caseId, step.label),
+    [caseId, sendMessage],
+  );
+
+  // Inverted FlatList shows newest at bottom — data must be reversed (newest-first)
+  const reversedMessages = [...messages].reverse();
+
+  const renderItem = ({ item }: { item: Message }) =>
+    item.role === 'navigator' ? (
+      <AIMessage
+        content={item.content}
+        nextSteps={item.nextSteps}
+        onNextStepPress={handleNextStep}
+      />
+    ) : (
+      <UserMessage content={item.content} />
+    );
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior="padding"
+      keyboardVerticalOffset={0}
+    >
+      <FlatList
+        data={reversedMessages}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.id}
+        inverted
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        keyboardDismissMode="interactive"
+        keyboardShouldPersistTaps="handled"
+        scrollEnabled={!!reversedMessages.length}
+        ListHeaderComponent={<View style={{ height: 16 }} />}
+      />
+      <ChatInput onSend={handleSend} />
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  listContent: { paddingTop: 4 },
+});

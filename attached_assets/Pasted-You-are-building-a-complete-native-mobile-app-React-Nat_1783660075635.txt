@@ -1,0 +1,195 @@
+You are building a complete native mobile app (React Native + Expo, iOS-first for App Store submission) called Pro Se Navigator, backed by Supabase (database, auth, storage, Edge Functions). Build it in the phase order below — complete and verify each phase before starting the next. Do not skip phases or merge them. Where a value is marked <<LIKE THIS>>, pause and ask me for it.
+
+What this app is: Harvey-caliber legal AI for self-represented (pro se) litigants. It organizes a case, drafts filings, tracks deadlines, and — its defining feature — verifies every legal citation against a real primary source (CourtListener API) before it ever reaches a document. Models draft; deterministic code verifies. That principle governs everything below.
+
+
+PHASE 1 — Design system (build this first; every screen inherits it)
+
+Light theme only for v1. Calm, whitespace-first, Harvey-like restraint but warmer, for scared non-lawyers.
+
+Color tokens:
+
+
+Page background #FAF9F5 (warm off-white) · surfaces #FFFFFF
+Text: primary #1C1B18 (near-black, never pure black) · secondary #6B6A63 · muted #9A988F
+Hairline borders #EAE8E1
+Brand teal #0F6E56 · guide accent teal #1D9E75 · amber CTA #E8A33D (dark text #412402 on amber)
+Verified/success: text #0F6E56 on #E1F5EE
+Deadline/warning: text #854F0B on #FAEEDA
+
+
+Typography: clean sans (Inter or system). Body 15px, line-height 1.6. Only two weights (400, 500). Sentence case everywhere. No gradients, no shadows, no heavy borders — whitespace does the work.
+
+Reusable components:
+
+
+AI message: flowing plain text, NO bubble, small "Navigator" label with compass icon above
+User message: subtle #E1F5EE bubble, right-aligned
+Verified tag: small inline green check + "verified" (12px), never a big filled card
+Next-step row: ↳ icon (muted) + bold label + one muted subtitle line, hairline dividers between rows
+Deadline card: subtle amber background, small
+Document card: thumbnail + filename + "N citations verified" in green + download icon
+Chat input: rounded pill, placeholder "Ask about your case…", mic icon, amber circular send button
+
+
+Layout: minimal top bar (back + muted case label + options menu). Bottom tab bar: Cases, Chat, Sources, Deadlines — muted gray icons, active tab in brand teal.
+
+
+PHASE 2 — Supabase data model with Row Level Security
+
+Enable the pgvector extension. Create these tables, ALL with RLS keyed to auth.uid() so no user can ever read another user's rows:
+
+cases            id, user_id, title, case_type, court, judge, case_number,
+                 claim_types, procedural_posture, jurisdiction, service_date, created_at
+documents        id, case_id, user_id, type, file_url, created_at
+document_chunks  id, document_id, case_id, user_id, content, embedding (vector), metadata
+messages         id, case_id, user_id, role, content, created_at
+verified_authorities  id, case_id, citation, courtlistener_id, verified_status,
+                 quote_confirmed, url
+deadlines        id, case_id, description, due_date, rule_basis, source
+workflow_runs    id, case_id, user_id, workflow_type, step, answers
+subscriptions    id, user_id, plan, status, stripe_customer_id, credits
+
+RLS is mandatory and non-negotiable. After creating, verify with two test accounts that neither can query the other's data.
+
+
+PHASE 3 — Auth
+
+Supabase authentication: email/password AND Sign in with Apple. Gate the entire app behind login. First login lands on the Cases list with an empty state inviting "Start your first case."
+
+
+PHASE 4 — Case object + guided chat
+
+A user creates a case (title, case type, court, parties). Opening a case shows the guided chat built from the Phase 1 components. Critical behavior: the Navigator speaks first. Each case type has an intake script — an opening message plus an ordered set of questions — so the user never faces a blank box. Under every Navigator turn, render tappable next-step rows (the available paths forward). Tapping one sends it as the user's reply. Persist all messages to messages, scoped to the case.
+
+
+PHASE 5 — RAG memory per case
+
+Document upload (PDF/image) to a case. On upload: extract text, chunk it, generate embeddings, store in document_chunks. On every chat turn: retrieve top-k relevant chunks + recent messages + the case's structured fields, and pass that bundle as context to the model call. Each case has persistent memory of its own documents only (RLS-scoped).
+
+
+PHASE 6 — Model router (Edge Function: router)
+
+The app NEVER calls a model API directly — only this function. Keys live in Edge Function secrets. Ask me for: <<ANTHROPIC_API_KEY>>, <<GEMINI_API_KEY>>, <<PERPLEXITY_API_KEY>>.
+
+Route by task AND plan:
+
+
+Drafting + complex analysis, Max/Case Pass plans → Claude Opus 4.8 (claude-opus-4-8)
+Drafting, Pro plan → Claude Sonnet (claude-sonnet-4-6)
+Open-web legal research → Perplexity Sonar Pro
+Long-context reading of the case file → Gemini
+Regular conversation, structuring, intake → Gemini Flash
+
+
+Enforce per-tier credit caps inside this function.
+
+
+PHASE 7 — Verification gate (Edge Function: verify) — THE defining feature
+
+Ask me for: <<COURTLISTENER_API_TOKEN>>.
+
+Before ANY drafted text containing a legal citation is shown to the user or inserted into a document:
+
+
+Extract every citation from the draft.
+Check each against the CourtListener API.
+Confirmed real (and quote confirmed where applicable) → mark verified (green), store in verified_authorities with the URL.
+Cannot confirm → flag red and DO NOT insert it. Never silently include an unverified citation.
+
+
+This runs on every draft, on every plan including Free. It is deterministic code, not a model judgment.
+
+
+PHASE 8 — Deadline engine (deterministic code, never the LLM)
+
+When the user enters a trigger date (default anchor: service date, not filing date), compute the deadline in code using federal Rule 6 counting: exclude the first day, include the last day, roll weekends/federal holidays to the next business day. Federal defaults first (e.g., 21-day answer window). Display the computed deadline immediately with the rule used and the note: "Confirm against your court's rules." Save to deadlines.
+
+If an answer deadline passes with no response logged: surface the two-step default process — Rule 55(a) clerk's entry of default, then Rule 55(b) default judgment — as an option the user confirms, with a servicemember-status caution. Never an automatic instruction to file.
+
+
+PHASE 9 — Multi-agent orchestration (Harvey-style: many agents, one orchestrator)
+
+Build a mesh of specialized agents coordinated by one orchestrator, each as a Supabase Edge Function (or a role the orchestrator invokes through router):
+
+
+Navigator (orchestrator): the only agent the user talks to. Owns case state, plans the next step, dispatches to sub-agents, returns plain-language results + next-step rows. Human confirmation checkpoint between steps.
+Intake agent: runs the case-type intake script, fills the case object.
+Document/parsing agent: ingests uploads (credit reports, citations, orders), extracts structured data, flags issues.
+Research agent: finds candidate authorities (Perplexity for open web, Gemini for the case file).
+Drafting agent: Claude (per router tiering) — complaints, letters, motions, forms.
+Verification agent: the Phase 7 gate. Deterministic.
+Deadline agent: the Phase 8 engine. Deterministic.
+Compliance/guardrail agent: see Phase 10.
+Workflow agents: one per case type (Phase 11–13), each a controller calling Research → Drafting → Verification → Deadline as needed.
+
+
+Standard flow: user → Navigator → intake/workflow agent → research → drafting → verification → deadline → compliance gate → Navigator → user confirms.
+
+
+PHASE 10 — Compliance / guardrail agent
+
+Inspects every drafted output before it reaches the user or a filing:
+
+
+Blocks all frivolous and pseudolegal arguments, specifically sovereign-citizen theories: right-to-travel-means-no-license, "natural man vs. legal fiction," "refuse for cause," "no injured party means no crime," capital-letters-name arguments, "notice to principal is notice to agent." When detected, briefly explain why these arguments fail in court and redirect to legitimate defenses.
+Enforces the "not legal advice / not a law firm" framing app-wide.
+Runs a pre-filing certification before any document can be marked ready to file: every citation re-verified, deadlines confirmed, and a plain-English checklist the user confirms.
+
+
+
+PHASE 11 — IFP workflow (fee waiver — simple side item)
+
+A workflow agent, runnable standalone or inside a case. Asks: household size, income, monthly expenses, assets, public benefits. Then explains how courts typically evaluate fee-waiver eligibility — NEVER a flat "you qualify" (IFP is discretionary). Then drafts the application (federal form AO 240 under 28 U.S.C. § 1915, or state equivalent) as a printable document the user files alongside their complaint.
+
+
+PHASE 12 — FCRA / credit repair workflow (flagship)
+
+Built on 15 U.S.C. § 1681e(b): consumer reporting agencies must follow reasonable procedures to assure "maximum possible accuracy."
+
+
+User uploads their credit report → parsing agent extracts tradelines and flags inconsistencies: not-mine accounts, wrong balances, duplicate or re-aged collections, mixed-file errors, bad dates, and cross-bureau mismatches between Equifax, Experian, and TransUnion.
+Draft the three-step administrative process: dispute letters to the bureaus (§ 1681i), then to the furnisher (§ 1681s-2(b)). Deadline agent tracks the 30-day investigation clock.
+If items come back "verified" but wrong, or deadlines are blown → assemble those facts into a verified complaint (FCRA claims, plus FDCPA if a debt collector is involved). Every statutory and case citation passes through the verification gate.
+
+
+
+PHASE 13 — Traffic ticket workflow (evidence and procedure ONLY)
+
+Strictly legitimate defense — the compliance agent blocks any sovereign-citizen argument in this workflow especially.
+
+
+Capture the citation (photo upload or manual entry) → parsing agent extracts offense, code section, date/time/location, alleged speed, measurement device, officer.
+Classify the speed law: absolute, presumed, or basic — this determines available defenses.
+Guide the not-guilty plea and track the trial date (deadline agent).
+Generate a written discovery request to the prosecution: radar/lidar calibration and maintenance records, device certification, officer's notes and training records. Track the response deadline; if records aren't produced, guide a motion to exclude or dismiss.
+Build the defense around the weakest element (identity or speed): calibration gaps, device/pacing error, officer vantage point and conditions, signage defects under MUTCD standards, procedural errors on the citation, officer non-appearance.
+Prepare the user: officer cross-examination question set; trial-by-written-declaration where available (e.g., California) or defense-by-certification (e.g., New Jersey); resolution alternatives (traffic school, diversion, amendment/reduction).
+Any case law is jurisdiction-specific and passes through the verification gate.
+
+
+
+PHASE 14 — Stripe subscriptions + credit caps
+
+Ask me for: <<STRIPE_KEYS>>.
+
+PlanPriceRuns onFree$0Few credits, cheapest models, FULL verification gateStarter$30/moGemini Flash; case org, chat, deadlines, verification; credit-cappedPro$69/moClaude Sonnet + Perplexity; all workflows, case-law featuresMax$149/moClaude Opus 4.8 + full deep research; everything; highest credit ceilingCase Pass$499 one-time6 months of Max ($249 option = 6 months of Pro)
+
+Founding-member rate: first 100–200 Max subscribers locked at $59/mo. Annual prepay ≈ 2 months free. Enforce credit caps per plan in the router (protecting a ~$30/mo margin floor). The verification gate is never gated by plan — it runs on Free too. Model quality scales with price; safety never does.
+
+
+PHASE 15 — Legal framing (build into the product)
+
+
+Persistent, clear "This is not legal advice. Pro Se Navigator is not a law firm." disclaimer — onboarding, settings, and beneath every drafted document.
+"Confirm against your court's rules" stamped on every computed deadline.
+Pre-filing certification (Phase 10) required before any document is marked ready to file.
+Placeholder screens linking to Terms of Service and Privacy Policy (content supplied separately).
+
+
+
+Build-order recap
+
+1 Design system → 2 Data model+RLS → 3 Auth → 4 Case+chat → 5 RAG → 6 Router → 7 Verification gate → 8 Deadlines → 9 Multi-agent orchestration → 10 Compliance agent → 11 IFP → 12 FCRA → 13 Traffic → 14 Stripe → 15 Legal framing.
+
+Complete each phase, confirm it works, then proceed. Ask me for the <<VALUES>> when you reach them. When all phases pass, prepare the Expo build for TestFlight submission.

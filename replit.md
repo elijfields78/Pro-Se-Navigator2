@@ -1,45 +1,82 @@
-# [Project name]
+# Pro Se Navigator
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Harvey-caliber legal AI for self-represented (pro se) litigants. Organizes a case, drafts filings, tracks deadlines, and verifies every legal citation against a real primary source before it reaches a document.
 
 ## Run & Operate
 
+- `pnpm --filter @workspace/pro-se-navigator run dev` — run the Expo dev server
 - `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
 - `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
 
 ## Stack
 
+- Expo (React Native), iOS-first, Expo Router file-based navigation
+- TypeScript, AsyncStorage (local persistence — Supabase in future phases)
+- React Query (@tanstack/react-query)
+- Inter font (400/500/600/700)
 - pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+```
+artifacts/pro-se-navigator/
+  app/
+    _layout.tsx          # Root layout — auth gating via AuthGate + useSegments
+    (auth)/              # Login + register screens
+    (tabs)/              # 4 tabs: cases, chat, sources, deadlines
+    case/[id].tsx        # Full-screen case chat (stack push)
+    case/new.tsx         # New case form (formSheet modal)
+  components/
+    AIMessage.tsx        # Navigator message: compass icon label, flowing text, next-step rows
+    UserMessage.tsx      # User message: teal bubble, right-aligned
+    ChatInput.tsx        # Pill input, mic icon, amber circular send button
+    CaseChat.tsx         # Inverted FlatList + ChatInput, KeyboardAvoidingView
+    CaseCard.tsx         # Case list card
+    DeadlineCard.tsx     # Amber deadline card with rule and disclaimer
+    VerifiedTag.tsx      # Inline green check "verified" tag
+    NextStepRow.tsx      # ↳ tappable next-step rows with hairline dividers
+  contexts/
+    AuthContext.tsx      # Auth state (AsyncStorage — Supabase in Phase 3)
+    CasesContext.tsx     # Cases, messages, deadlines, sources + intake state machine
+    types.ts             # Shared TypeScript types
+  data/
+    intakeScripts.ts     # Per-case-type intake scripts (4 turns each)
+  constants/
+    colors.ts            # Design tokens (exact spec colors)
+```
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- **Intake as state machine**: each case has `intakeTurnIndex` (0-based). Each user message advances the turn. At `script.length`, a wrap-up message is sent. Beyond that, post-intake canned response.
+- **CasesContext is user-scoped**: all AsyncStorage keys include `userId`, so switching accounts never leaks data.
+- **Auth gating via AuthGate component**: uses `useSegments` + `useRouter` inside the root layout to redirect unauthenticated users to `/(auth)/login` and authenticated users away from auth screens.
+- **No gradients, no shadows, no heavy borders** — whitespace-only design per spec.
+- **Disclaimer persistent**: on every auth screen and empty states. Pre-filing certification and Supabase RLS come in Phases 2–3.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+Case types: General Civil, FCRA / Credit Repair, Traffic, Fee Waiver (IFP). Each has a 4-turn guided intake script. The Navigator speaks first in every case. After intake: wrap-up + free chat (AI router in Phase 6).
+
+Build order from spec: 1 Design system ✅ → 2 Supabase data model → 3 Auth (Supabase) → 4 Case+chat ✅ → 5 RAG → 6 Model router → 7 Verification gate → 8 Deadlines → 9 Multi-agent → 10 Compliance → 11 IFP workflow → 12 FCRA workflow → 13 Traffic workflow → 14 Stripe → 15 Legal framing
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- App name: Pro Se Navigator
+- iOS-first, App Store submission via Expo Launch
+- Light theme only for v1
+- Phase order must be followed — complete and verify each before starting next
+- Ask for API keys/tokens at the relevant phase: Supabase (Phase 2), Anthropic/Gemini/Perplexity (Phase 6), CourtListener (Phase 7), Stripe (Phase 14)
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Never call models directly from the app — only through the Edge Function router (Phase 6)
+- The verification gate (Phase 7) runs on ALL plans including Free — it is never paywalled
+- Deadline computation is deterministic code only — never the LLM
+- Compliance agent (Phase 10) must block sovereign-citizen arguments by name
+- `pnpm --filter @workspace/pro-se-navigator run typecheck` to verify — not `build` (needs PORT env)
+- Color tokens in `constants/colors.ts` — never hardcode hex values in components
 
 ## Pointers
 
 - See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- See the `expo` skill for Expo-specific patterns and pitfalls

@@ -1,0 +1,23 @@
+kind = "mobile"
+previewPath = "/"
+title = "Pro Se Navigator"
+version = "1.0.0"
+id = "artifacts/pro-se-navigator"
+router = "expo-domain"
+
+[[services]]
+name = "expo"
+ensurePreviewReachable = "/status"
+paths = [ "/" ]
+localPort = 22695
+
+[services.development]
+run = "pnpm --filter @workspace/pro-se-navigator run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/pro-se-navigator", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/pro-se-navigator", "run", "serve" ]
+
+[services.env]
+PORT = "22695"
+BASE_PATH = "/"
