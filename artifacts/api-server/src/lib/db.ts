@@ -7,13 +7,19 @@ const { Pool } = pg;
 // We therefore create the pool on first use rather than at import time.
 //
 // Connection string source priority:
-//   1. DATABASE_URL  (standard; set when a Replit Postgres DB is attached)
-//   2. SUPABASE_DB_PASSWORD  (used in this project: the value is a full
-//      postgresql:// connection URL, not just a password token)
+//   1. SUPABASE_POOLER_URL  (Supabase session-pooler; IPv4-compatible, preferred)
+//   2. DATABASE_URL          (Replit built-in Postgres; present in dev but points
+//                             to the local helium DB, not Supabase)
+//   3. SUPABASE_DB_PASSWORD  (legacy: full postgresql:// direct URL; DNS
+//                             unreachable from Replit's network, kept as fallback)
 let pool: pg.Pool | null = null;
 
 function connectionString(): string | undefined {
-  return process.env.DATABASE_URL ?? process.env.SUPABASE_DB_PASSWORD;
+  return (
+    process.env.SUPABASE_POOLER_URL ??
+    process.env.DATABASE_URL ??
+    process.env.SUPABASE_DB_PASSWORD
+  );
 }
 
 export function isDbConfigured(): boolean {
