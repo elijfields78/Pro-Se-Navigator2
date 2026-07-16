@@ -13,11 +13,17 @@ import { legalCorpusSeed } from "./data/legalCorpusSeed";
 const { Pool } = pg;
 
 async function main() {
-  if (!process.env.DATABASE_URL) {
-    throw new Error("DATABASE_URL must be set to ingest the legal corpus.");
+  // Accept either DATABASE_URL (standard) or SUPABASE_DB_PASSWORD (which in
+  // this project holds the full postgresql:// connection URL).
+  const connectionString =
+    process.env.DATABASE_URL ?? process.env.SUPABASE_DB_PASSWORD;
+  if (!connectionString) {
+    throw new Error(
+      "DATABASE_URL or SUPABASE_DB_PASSWORD must be set to ingest the legal corpus.",
+    );
   }
 
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const pool = new Pool({ connectionString });
   const client = await pool.connect();
 
   let sourceCount = 0;
