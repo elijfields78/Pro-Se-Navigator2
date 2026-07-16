@@ -28,6 +28,12 @@ export async function searchLegalCorpus(
   const limit = Math.min(Math.max(opts.limit ?? 8, 1), 25);
   const caseType = opts.caseType ?? null;
 
+  // Use OR-based matching in WHERE (any significant term matches) so that
+  // natural-language queries like "how many days to answer a complaint" hit
+  // chunks that contain individual relevant words, not every word at once.
+  // ts_rank still uses the AND query, so chunks matching more terms rank higher.
+  // NULLIF guard: if the input has no indexable words the AND cast produces ''
+  // which would error; fall back to matching nothing in that case.
   const sql = `
     select
       s.citation,
@@ -44,7 +50,19 @@ export async function searchLegalCorpus(
       ts_rank(c.content_fts, websearch_to_tsquery('english', $1)) as score
     from legal_chunks c
     join legal_sources s on s.id = c.source_id
-    where c.content_fts @@ websearch_to_tsquery('english', $1)
+    where c.content_fts @@ to_tsquery(
+        'english',
+        coalesce(
+          nullif(
+            regexp_replace(
+              websearch_to_tsquery('english', $1)::text,
+              ' & ', ' | ', 'g'
+            ),
+            ''
+          ),
+          'false'
+        )
+      )
       and ($2::text is null or $2 = any(s.case_types))
     order by score desc
     limit $3
