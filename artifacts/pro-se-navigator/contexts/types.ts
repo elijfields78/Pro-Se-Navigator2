@@ -114,6 +114,23 @@ export interface CaseArtifact {
   createdAt: string;
 }
 
+/** Source of an uploaded document, mirrored from the attachment picker. */
+export type DocumentSource = 'image' | 'camera' | 'file';
+
+export interface CaseDocument {
+  id: string;
+  caseId: string;
+  caseTitle: string;
+  /** Original file name shown to the user. */
+  name: string;
+  /** Path within the private `case-documents` Storage bucket. */
+  storagePath: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  source: DocumentSource;
+  createdAt: string;
+}
+
 export interface User {
   id: string;
   email: string;

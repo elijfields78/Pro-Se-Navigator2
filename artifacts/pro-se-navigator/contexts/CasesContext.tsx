@@ -14,11 +14,19 @@ import {
   Deadline,
   VerifiedAuthority,
   CaseArtifact,
+  CaseDocument,
   ArtifactKind,
   PendingDeadlineEntry,
   PendingIntakeFollowUp,
 } from './types';
 import { useAuth } from './AuthContext';
+import {
+  uploadCaseDocument,
+  listUserDocuments,
+  deleteCaseDocument,
+  getDocumentSignedUrl,
+  DocumentUploadInput,
+} from '@/lib/documents';
 import intakeScripts, {
   WRAP_UP_MESSAGE,
   WRAP_UP_NEXT_STEPS,
@@ -152,6 +160,7 @@ interface CasesContextType {
   deadlines: Deadline[];
   sources: VerifiedAuthority[];
   artifacts: CaseArtifact[];
+  documents: CaseDocument[];
   activeCaseId: string | null;
   isLoading: boolean;
   createCase: (data: CreateCaseInput) => Promise<Case>;
@@ -169,6 +178,13 @@ interface CasesContextType {
   /** Called from DeadlineDateEntry once the user has entered the trigger date.
    *  Computes the Rule 6 deadline, saves it, and posts a confirmation message. */
   submitDeadlineTriggerDate: (caseId: string, triggerDateStr: string) => Promise<void>;
+  /** Uploads a picked file to Storage and records it against the case. */
+  uploadDocument: (caseId: string, input: DocumentUploadInput) => Promise<CaseDocument>;
+  deleteDocument: (id: string) => Promise<void>;
+  /** Returns a short-lived signed URL for viewing/downloading a document. */
+  getDocumentUrl: (id: string) => Promise<string>;
+  /** Documents for a specific case. */
+  getCaseDocuments: (caseId: string) => CaseDocument[];
 }
 
 const CasesContext = createContext<CasesContextType | null>(null);
@@ -180,6 +196,7 @@ export function CasesProvider({ children }: { children: ReactNode }) {
   const [deadlines, setDeadlines]            = useState<Deadline[]>([]);
   const [sources, setSources]                = useState<VerifiedAuthority[]>([]);
   const [artifacts, setArtifacts]            = useState<CaseArtifact[]>([]);
+  const [documents, setDocuments]            = useState<CaseDocument[]>([]);
   const [activeCaseId, setActiveCaseIdState] = useState<string | null>(null);
   const [isLoading, setIsLoading]            = useState(true);
 
@@ -191,6 +208,7 @@ export function CasesProvider({ children }: { children: ReactNode }) {
       setDeadlines([]);
       setSources([]);
       setArtifacts([]);
+      setDocuments([]);
       setActiveCaseIdState(null);
       setIsLoading(false);
       return;
@@ -234,6 +252,15 @@ export function CasesProvider({ children }: { children: ReactNode }) {
       console.error('[CasesContext] loadAll error:', err);
     } finally {
       setIsLoading(false);
+    }
+
+    // Documents load separately and defensively: the documents table/bucket
+    // (migration 004) may not be applied in every environment yet, and a
+    // failure here must not block the core case data above.
+    try {
+      setDocuments(await listUserDocuments(uid));
+    } catch (err) {
+      console.warn('[CasesContext] documents load skipped:', err);
     }
   };
 
@@ -843,6 +870,54 @@ export function CasesProvider({ children }: { children: ReactNode }) {
     [user],
   );
 
+  // ── Documents ─────────────────────────────────────────────────────────────
+  const uploadDocument = useCallback(
+    async (caseId: string, input: DocumentUploadInput): Promise<CaseDocument> => {
+      if (!user) throw new Error('Not authenticated');
+      const targetCase = cases.find((c) => c.id === caseId);
+      const doc = await uploadCaseDocument({
+        userId: user.id,
+        caseId,
+        caseTitle: targetCase?.title ?? '',
+        input,
+      });
+      setDocuments((prev) => [doc, ...prev]);
+      return doc;
+    },
+    [user, cases],
+  );
+
+  const deleteDocument = useCallback(
+    async (id: string): Promise<void> => {
+      const doc = documents.find((d) => d.id === id);
+      if (!doc) return;
+      // Optimistic removal with rollback if the storage/row delete fails.
+      setDocuments((prev) => prev.filter((d) => d.id !== id));
+      try {
+        await deleteCaseDocument(doc);
+      } catch (err) {
+        console.error('[deleteDocument] failed — rolling back:', err);
+        setDocuments((prev) => [doc, ...prev.filter((d) => d.id !== id)]);
+        throw err;
+      }
+    },
+    [documents],
+  );
+
+  const getDocumentUrl = useCallback(
+    async (id: string): Promise<string> => {
+      const doc = documents.find((d) => d.id === id);
+      if (!doc) throw new Error('Document not found');
+      return getDocumentSignedUrl(doc.storagePath);
+    },
+    [documents],
+  );
+
+  const getCaseDocuments = useCallback(
+    (caseId: string) => documents.filter((d) => d.caseId === caseId),
+    [documents],
+  );
+
   // ── deleteArtifact ────────────────────────────────────────────────────────
   const deleteArtifact = useCallback(
     async (id: string) => {
@@ -866,6 +941,7 @@ export function CasesProvider({ children }: { children: ReactNode }) {
         deadlines,
         sources,
         artifacts,
+        documents,
         activeCaseId,
         isLoading,
         createCase,
@@ -879,6 +955,10 @@ export function CasesProvider({ children }: { children: ReactNode }) {
         addArtifact,
         deleteArtifact,
         submitDeadlineTriggerDate,
+        uploadDocument,
+        deleteDocument,
+        getDocumentUrl,
+        getCaseDocuments,
       }}
     >
       {children}

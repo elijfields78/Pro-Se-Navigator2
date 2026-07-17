@@ -5,6 +5,7 @@ import AIMessage from './AIMessage';
 import UserMessage from './UserMessage';
 import ChatInput from './ChatInput';
 import DeadlineDateEntry from './DeadlineDateEntry';
+import { PendingAttachment } from './AttachmentSheet';
 import { Message, NextStep, PendingDeadlineEntry } from '@/contexts/types';
 import { useCases } from '@/contexts/CasesContext';
 
@@ -14,7 +15,7 @@ interface CaseChatProps {
 }
 
 export default function CaseChat({ caseId, messages }: CaseChatProps) {
-  const { sendMessage, submitDeadlineTriggerDate, cases } = useCases();
+  const { sendMessage, submitDeadlineTriggerDate, cases, uploadDocument } = useCases();
 
   // Resolve pending deadline entry for this case
   const caseItem = cases.find((c) => c.id === caseId);
@@ -24,13 +25,41 @@ export default function CaseChat({ caseId, messages }: CaseChatProps) {
       : null;
 
   const handleSend = useCallback(
-    (text: string) => {
-      sendMessage(caseId, text).catch((err) => {
-        console.error('[CaseChat] sendMessage error:', err);
-        Alert.alert('Failed to send', 'Your message could not be saved. Please try again.');
-      });
+    async (text: string, attachments?: PendingAttachment[]) => {
+      // Persist any attached files to the case's document store first.
+      if (attachments && attachments.length > 0) {
+        try {
+          for (const att of attachments) {
+            await uploadDocument(caseId, {
+              uri: att.uri,
+              name: att.name,
+              mimeType: att.mimeType,
+              size: att.size,
+              source: att.type,
+            });
+          }
+        } catch (err) {
+          console.error('[CaseChat] document upload error:', err);
+          Alert.alert(
+            'Upload failed',
+            err instanceof Error
+              ? err.message
+              : 'Your file could not be saved. Please try again.',
+          );
+          // Fall through so any typed text is still sent.
+        }
+      }
+
+      if (text.trim().length > 0) {
+        try {
+          await sendMessage(caseId, text);
+        } catch (err) {
+          console.error('[CaseChat] sendMessage error:', err);
+          Alert.alert('Failed to send', 'Your message could not be saved. Please try again.');
+        }
+      }
     },
-    [caseId, sendMessage],
+    [caseId, sendMessage, uploadDocument],
   );
 
   const handleNextStep = useCallback(
