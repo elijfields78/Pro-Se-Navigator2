@@ -2,8 +2,19 @@ import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { isDbConfigured } from "../lib/db";
 import { searchLegalCorpus } from "../lib/retrieval";
+import { rateLimit } from "../middlewares/rateLimit";
+import { requireAuth } from "../middlewares/auth";
 
 const router: IRouter = Router();
+
+// Abuse/cost protection: this endpoint runs DB full-text queries. Cap per-IP
+// request rate. Auth is opt-in via RETRIEVAL_REQUIRE_AUTH so the endpoint keeps
+// working before the mobile client attaches its Supabase session token; when a
+// token IS supplied it is verified and the user id is attached regardless.
+const searchRateLimit = rateLimit({ windowMs: 60_000, max: 30 });
+const searchAuth = requireAuth({
+  required: process.env.RETRIEVAL_REQUIRE_AUTH === "true",
+});
 
 // Contract is defined locally for now. When the OpenAPI spec (lib/api-spec)
 // grows this endpoint, move these into the generated @workspace/api-zod package.
@@ -13,7 +24,7 @@ const SearchRequest = z.object({
   limit: z.number().int().positive().max(25).optional(),
 });
 
-router.post("/retrieval/search", async (req, res) => {
+router.post("/retrieval/search", searchRateLimit, searchAuth, async (req, res) => {
   const parsed = SearchRequest.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({

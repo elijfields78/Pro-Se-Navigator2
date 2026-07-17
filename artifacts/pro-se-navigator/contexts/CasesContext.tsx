@@ -155,17 +155,17 @@ interface CasesContextType {
   activeCaseId: string | null;
   isLoading: boolean;
   createCase: (data: CreateCaseInput) => Promise<Case>;
-  deleteCase: (id: string) => void;
-  updateCaseTitle: (id: string, title: string) => void;
+  deleteCase: (id: string) => Promise<void>;
+  updateCaseTitle: (id: string, title: string) => Promise<void>;
   sendMessage: (caseId: string, content: string) => Promise<void>;
   setActiveCase: (id: string | null) => void;
   getCaseMessages: (caseId: string) => Message[];
-  addDeadline: (deadline: Omit<Deadline, 'id' | 'createdAt'>) => void;
-  addSource: (source: Omit<VerifiedAuthority, 'id' | 'createdAt'>) => void;
+  addDeadline: (deadline: Omit<Deadline, 'id' | 'createdAt'>) => Promise<void>;
+  addSource: (source: Omit<VerifiedAuthority, 'id' | 'createdAt'>) => Promise<void>;
   /** Creates an artifact and — for non-note kinds — posts a deadline estimate
    *  in the chat and sets pendingFollowUp so the user can enter the trigger date. */
   addArtifact: (artifact: Omit<CaseArtifact, 'id' | 'createdAt'>) => Promise<void>;
-  deleteArtifact: (id: string) => void;
+  deleteArtifact: (id: string) => Promise<void>;
   /** Called from DeadlineDateEntry once the user has entered the trigger date.
    *  Computes the Rule 6 deadline, saves it, and posts a confirmation message. */
   submitDeadlineTriggerDate: (caseId: string, triggerDateStr: string) => Promise<void>;
@@ -716,52 +716,66 @@ export function CasesProvider({ children }: { children: ReactNode }) {
 
   // ── deleteCase ────────────────────────────────────────────────────────────
   const deleteCase = useCallback(
-    (id: string) => {
-      const updatedCases     = cases.filter((c) => c.id !== id);
-      const updatedMessages  = { ...messages };
-      delete updatedMessages[id];
-      const updatedDeadlines = deadlines.filter((d) => d.caseId !== id);
-      const updatedSources   = sources.filter((s) => s.caseId !== id);
-      const updatedArtifacts = artifacts.filter((a) => a.caseId !== id);
+    async (id: string) => {
+      // Snapshot every slice this delete touches so we can restore on failure.
+      const prevCases     = cases;
+      const prevMessages  = messages;
+      const prevDeadlines = deadlines;
+      const prevSources   = sources;
+      const prevArtifacts = artifacts;
+      const prevActiveId  = activeCaseId;
 
-      setCases(updatedCases);
+      const updatedMessages = { ...messages };
+      delete updatedMessages[id];
+
+      setCases(cases.filter((c) => c.id !== id));
       setMessages(updatedMessages);
-      setDeadlines(updatedDeadlines);
-      setSources(updatedSources);
-      setArtifacts(updatedArtifacts);
+      setDeadlines(deadlines.filter((d) => d.caseId !== id));
+      setSources(sources.filter((s) => s.caseId !== id));
+      setArtifacts(artifacts.filter((a) => a.caseId !== id));
       if (activeCaseId === id) setActiveCaseIdState(null);
 
       // ON DELETE CASCADE handles related rows
-      supabase.from('cases')
-        .delete()
-        .eq('id', id)
-        .then(({ error }) => { if (error) console.error('[deleteCase] delete:', error); });
+      const { error } = await supabase.from('cases').delete().eq('id', id);
+      if (error) {
+        console.error('[deleteCase] delete failed — rolling back:', error);
+        setCases(prevCases);
+        setMessages(prevMessages);
+        setDeadlines(prevDeadlines);
+        setSources(prevSources);
+        setArtifacts(prevArtifacts);
+        setActiveCaseIdState(prevActiveId);
+      }
     },
     [cases, messages, deadlines, sources, artifacts, activeCaseId],
   );
 
   // ── updateCaseTitle ───────────────────────────────────────────────────────
   const updateCaseTitle = useCallback(
-    (id: string, title: string) => {
+    async (id: string, title: string) => {
       const trimmed = title.trim();
-      const updatedCases = cases.map((c) =>
-        c.id === id ? { ...c, title: trimmed } : c,
-      );
-      const updatedArtifacts = artifacts.map((a) =>
-        a.caseId === id ? { ...a, caseTitle: trimmed } : a,
-      );
-      setCases(updatedCases);
-      setArtifacts(updatedArtifacts);
+      const prevCases = cases;
+      const prevArtifacts = artifacts;
 
-      supabase.from('cases')
-        .update({ title: trimmed })
-        .eq('id', id)
-        .then(({ error }) => { if (error) console.error('[updateCaseTitle] cases:', error); });
+      setCases(cases.map((c) => (c.id === id ? { ...c, title: trimmed } : c)));
+      setArtifacts(
+        artifacts.map((a) => (a.caseId === id ? { ...a, caseTitle: trimmed } : a)),
+      );
 
-      supabase.from('artifacts')
-        .update({ case_title: trimmed })
-        .eq('case_id', id)
-        .then(({ error }) => { if (error) console.error('[updateCaseTitle] artifacts:', error); });
+      // The case title is denormalized onto artifacts (case_title), so both
+      // writes must succeed together. Roll back both slices if either fails.
+      const [caseRes, artRes] = await Promise.all([
+        supabase.from('cases').update({ title: trimmed }).eq('id', id),
+        supabase.from('artifacts').update({ case_title: trimmed }).eq('case_id', id),
+      ]);
+      if (caseRes.error || artRes.error) {
+        console.error(
+          '[updateCaseTitle] update failed — rolling back:',
+          caseRes.error ?? artRes.error,
+        );
+        setCases(prevCases);
+        setArtifacts(prevArtifacts);
+      }
     },
     [cases, artifacts],
   );
@@ -779,63 +793,69 @@ export function CasesProvider({ children }: { children: ReactNode }) {
 
   // ── addDeadline ───────────────────────────────────────────────────────────
   const addDeadline = useCallback(
-    (data: Omit<Deadline, 'id' | 'createdAt'>) => {
+    async (data: Omit<Deadline, 'id' | 'createdAt'>) => {
       if (!user) return;
       const deadline: Deadline = { ...data, id: genId(), createdAt: new Date().toISOString() };
       setDeadlines((prev) => [deadline, ...prev]);
 
-      supabase.from('deadlines')
-        .insert({
-          id: deadline.id,
-          case_id: deadline.caseId,
-          user_id: user.id,
-          case_title: deadline.caseTitle,
-          description: deadline.description,
-          due_date: deadline.dueDate,
-          rule_basis: deadline.ruleBasis,
-          source: deadline.source ?? null,
-          created_at: deadline.createdAt,
-        })
-        .then(({ error }) => { if (error) console.error('[addDeadline] insert:', error); });
+      const { error } = await supabase.from('deadlines').insert({
+        id: deadline.id,
+        case_id: deadline.caseId,
+        user_id: user.id,
+        case_title: deadline.caseTitle,
+        description: deadline.description,
+        due_date: deadline.dueDate,
+        rule_basis: deadline.ruleBasis,
+        source: deadline.source ?? null,
+        created_at: deadline.createdAt,
+      });
+      if (error) {
+        console.error('[addDeadline] insert failed — rolling back:', error);
+        setDeadlines((prev) => prev.filter((d) => d.id !== deadline.id));
+      }
     },
     [user],
   );
 
   // ── addSource ─────────────────────────────────────────────────────────────
   const addSource = useCallback(
-    (data: Omit<VerifiedAuthority, 'id' | 'createdAt'>) => {
+    async (data: Omit<VerifiedAuthority, 'id' | 'createdAt'>) => {
       if (!user) return;
       const source: VerifiedAuthority = { ...data, id: genId(), createdAt: new Date().toISOString() };
       setSources((prev) => [source, ...prev]);
 
-      supabase.from('verified_authorities')
-        .insert({
-          id: source.id,
-          case_id: source.caseId,
-          user_id: user.id,
-          case_title: source.caseTitle,
-          citation: source.citation,
-          verified_status: source.verifiedStatus,
-          url: source.url ?? null,
-          quote: source.quote ?? null,
-          created_at: source.createdAt,
-        })
-        .then(({ error }) => { if (error) console.error('[addSource] insert:', error); });
+      const { error } = await supabase.from('verified_authorities').insert({
+        id: source.id,
+        case_id: source.caseId,
+        user_id: user.id,
+        case_title: source.caseTitle,
+        citation: source.citation,
+        verified_status: source.verifiedStatus,
+        url: source.url ?? null,
+        quote: source.quote ?? null,
+        created_at: source.createdAt,
+      });
+      if (error) {
+        console.error('[addSource] insert failed — rolling back:', error);
+        setSources((prev) => prev.filter((s) => s.id !== source.id));
+      }
     },
     [user],
   );
 
   // ── deleteArtifact ────────────────────────────────────────────────────────
   const deleteArtifact = useCallback(
-    (id: string) => {
+    async (id: string) => {
+      const removed = artifacts.find((a) => a.id === id);
       setArtifacts((prev) => prev.filter((a) => a.id !== id));
 
-      supabase.from('artifacts')
-        .delete()
-        .eq('id', id)
-        .then(({ error }) => { if (error) console.error('[deleteArtifact] delete:', error); });
+      const { error } = await supabase.from('artifacts').delete().eq('id', id);
+      if (error && removed) {
+        console.error('[deleteArtifact] delete failed — rolling back:', error);
+        setArtifacts((prev) => [removed, ...prev.filter((a) => a.id !== id)]);
+      }
     },
-    [],
+    [artifacts],
   );
 
   return (
