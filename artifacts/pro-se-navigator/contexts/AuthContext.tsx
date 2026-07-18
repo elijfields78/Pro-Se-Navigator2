@@ -7,8 +7,13 @@ import React, {
   ReactNode,
 } from 'react';
 import { AppState } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import { supabase } from '@/lib/supabase';
 import { User } from './types';
+
+// Ensures the auth browser session closes cleanly on return to the app.
+WebBrowser.maybeCompleteAuthSession();
 
 interface AuthContextType {
   user: User | null;
@@ -21,8 +26,8 @@ interface AuthContextType {
    */
   signUp: (email: string, password: string, name?: string) => Promise<{ needsConfirmation: boolean }>;
   signOut: () => Promise<void>;
-  /** Returns true if sign-in completed, false if the user canceled the Apple sheet. */
-  signInWithApple: () => Promise<boolean>;
+  /** Returns true if sign-in completed, false if the user canceled the browser. */
+  signInWithGoogle: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -119,62 +124,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   /**
-   * Sign in with Apple using expo-apple-authentication.
-   * Requires Apple configured as an OAuth provider in the Supabase dashboard.
-   * See: supabase/migrations/001_initial.sql for setup instructions.
+   * Sign in with Google via Supabase OAuth (PKCE).
+   *
+   * Requires Google enabled as a provider in the Supabase dashboard, and this
+   * app's redirect URL (scheme `pro-se-navigator://`) added to Supabase Auth →
+   * URL Configuration → Redirect URLs.
+   *
+   * Flow: get the provider URL from Supabase, open it in a system auth browser,
+   * capture the `code` from the redirect back into the app, and exchange it for
+   * a session. Returns true on success, false if the user dismissed the browser.
    */
-  /**
-   * Sign in with Apple.
-   * Returns true on successful sign-in, false if the user canceled.
-   * Throws on real errors (e.g. network failure, Supabase error).
-   */
-  const signInWithApple = useCallback(async (): Promise<boolean> => {
-    try {
-      // Lazy imports — only available on iOS
-      const AppleAuthentication = await import('expo-apple-authentication');
-      const Crypto = await import('expo-crypto');
+  const signInWithGoogle = useCallback(async (): Promise<boolean> => {
+    const redirectTo = Linking.createURL('auth-callback');
 
-      // Generate a cryptographically secure nonce for replay-attack prevention.
-      // getRandomBytesAsync uses the OS CSPRNG (not Math.random).
-      const randomBytes = await Crypto.getRandomBytesAsync(32);
-      const rawNonce = Array.from(randomBytes)
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join('');
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo, skipBrowserRedirect: true },
+    });
+    if (error) throw new Error(error.message);
+    if (!data?.url) throw new Error('Could not start Google sign-in. Please try again.');
 
-      const hashedNonce = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
-        rawNonce,
+    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+    // User closed the browser without completing sign-in.
+    if (result.type !== 'success') return false;
+
+    const parsed = Linking.parse(result.url);
+    const code = parsed.queryParams?.code;
+    if (typeof code !== 'string') {
+      const desc = parsed.queryParams?.error_description;
+      throw new Error(
+        typeof desc === 'string' ? desc : 'Google sign-in did not complete. Please try again.',
       );
-
-      const credential = await AppleAuthentication.signInAsync({
-        requestedScopes: [
-          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-          AppleAuthentication.AppleAuthenticationScope.EMAIL,
-        ],
-        nonce: hashedNonce,
-      });
-
-      if (!credential.identityToken) {
-        throw new Error('Apple Sign In returned no identity token.');
-      }
-
-      const { error } = await supabase.auth.signInWithIdToken({
-        provider: 'apple',
-        token: credential.identityToken,
-        nonce: rawNonce,
-      });
-
-      if (error) throw new Error(error.message);
-      return true;
-    } catch (err: any) {
-      // ERR_REQUEST_CANCELED means the user dismissed the sheet — not a real error
-      if (err?.code === 'ERR_REQUEST_CANCELED') return false;
-      throw err;
     }
+
+    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+    if (exchangeError) throw new Error(exchangeError.message);
+    return true;
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, signIn, signUp, signOut, signInWithApple }}>
+    <AuthContext.Provider value={{ user, isLoading, signIn, signUp, signOut, signInWithGoogle }}>
       {children}
     </AuthContext.Provider>
   );
