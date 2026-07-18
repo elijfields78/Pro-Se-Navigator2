@@ -8,6 +8,8 @@ import {
   Modal,
   SectionList,
   Keyboard,
+  Platform,
+  StatusBar,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -46,6 +48,13 @@ export default function GlobalSearch({ visible, onClose }: GlobalSearchProps) {
   const [input, setInput] = useState('');
   const [query, setQuery] = useState('');
   const [recents, setRecents] = useState<string[]>([]);
+
+  // Inside a Modal, useSafeAreaInsets() often reports 0 because the modal
+  // renders outside the SafeAreaProvider. Fall back to a sane top spacing so
+  // the search field never hides under the status bar / notch.
+  const topInset =
+    insets.top ||
+    (Platform.OS === 'android' ? StatusBar.currentHeight ?? 24 : 44);
 
   const sections = useGlobalSearch(query);
 
@@ -105,7 +114,7 @@ export default function GlobalSearch({ visible, onClose }: GlobalSearchProps) {
       onRequestClose={close}
       statusBarTranslucent
     >
-      <View style={[styles.root, { backgroundColor: colors.background, paddingTop: insets.top + 8 }]}>
+      <View style={[styles.root, { backgroundColor: colors.background, paddingTop: topInset + 8 }]}>
         {/* ── Search field ── */}
         <View style={styles.searchRow}>
           <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
