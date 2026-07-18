@@ -113,3 +113,28 @@ Running record of architectural decisions. Newest entries at the bottom.
   unconfirmed citations then passes a clean verified draft, and the reactive
   handoff carries narrative/evidence/theories/viability/court/docket.
 - 28 tests passing; typecheck and production build clean.
+
+## 2026-07-18 — Wiring pass: engines ↔ surface, auth, persistence
+
+- **Auth:** Supabase email/password on the web surface; the browser session's
+  access token rides as a Bearer header to API routes, which validate it and
+  run every query through a token-scoped client — RLS enforces per-user
+  isolation on all case data. No service-role key in user paths.
+- **API routes:** `/api/cases` (create/list), `/api/cases/[id]` (bundle +
+  current-gate missing list), `/api/cases/[id]/intake` (Phase 1 pipeline),
+  `/api/cases/[id]/approve-narrative` (the Phase 1 gate action),
+  `/api/cases/[id]/advance` (generic server-side advance attempt).
+- **The FSM never trusts the client:** `computeArtifacts` (pure, tested)
+  assembles gate inputs from stored rows only; `tryAdvance` rebuilds the
+  machine from the persisted phase and evaluates the real gate. A client
+  cannot leapfrog phases by posting artifact claims.
+- **Phase-5+ artifacts** (pre-suit, commitment, packet, service) live in
+  `nav_case_phase_state.gate_artifacts` until their own modules exist; the
+  gates already enforce them.
+- **Surface:** `/app` now signs in, creates the case on the first story
+  message, runs real Phase 1 in the conversation (structure → gap-filler
+  questions → iterative retelling → explicit approval chip), advances the
+  FSM on approval, and shows live phase + missing-gate items + evidence
+  count in the sidebar. Post-intake messages flow to the general Navigator
+  chat with case context prepended.
+- 32 tests passing; typecheck and production build clean.
