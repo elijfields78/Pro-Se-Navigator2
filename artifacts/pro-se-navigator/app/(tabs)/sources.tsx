@@ -9,13 +9,15 @@ import {
   ActivityIndicator,
   TextInput,
   Keyboard,
+  Modal,
+  Alert,
 } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import { useCases } from '@/contexts/CasesContext';
 import VerifiedTag from '@/components/VerifiedTag';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { VerifiedAuthority } from '@/contexts/types';
+import { VerifiedAuthority, Case } from '@/contexts/types';
 import {
   searchLegalLibrary,
   isRetrievalConfigured,
@@ -29,12 +31,14 @@ type SearchState = 'idle' | 'loading' | 'done' | 'error';
 export default function SourcesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { sources, isLoading } = useCases();
+  const { sources, cases, addSource, isLoading } = useCases();
 
   const [query, setQuery] = useState('');
   const [searchState, setSearchState] = useState<SearchState>('idle');
   const [results, setResults] = useState<LegalSearchResult[]>([]);
   const [errorMsg, setErrorMsg] = useState('');
+  // The library result the user is choosing a case for (case-picker modal).
+  const [savingResult, setSavingResult] = useState<LegalSearchResult | null>(null);
 
   const runSearch = useCallback(async () => {
     const q = query.trim();
@@ -59,6 +63,44 @@ export default function SourcesScreen() {
     setSearchState('idle');
     setErrorMsg('');
   }, []);
+
+  const startSaveToCase = useCallback((result: LegalSearchResult) => {
+    Haptics.selectionAsync();
+    if (cases.length === 0) {
+      Alert.alert(
+        'No cases yet',
+        'Create a case first, then you can save legal authorities to it.',
+      );
+      return;
+    }
+    setSavingResult(result);
+  }, [cases.length]);
+
+  const saveToCase = useCallback(
+    async (caseItem: Case) => {
+      const result = savingResult;
+      setSavingResult(null);
+      if (!result) return;
+      try {
+        // Saved as 'pending': it's a real primary source, but "verified" in this
+        // app means checked against a specific proposition — not yet the case here.
+        await addSource({
+          caseId: caseItem.id,
+          caseTitle: caseItem.title,
+          citation: result.citation,
+          verifiedStatus: 'pending',
+          url: result.url,
+          quote: result.excerpt,
+        });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert('Saved', `${result.citation} was added to "${caseItem.title || 'your case'}".`);
+      } catch (err) {
+        console.error('[Sources] save to case failed:', err);
+        Alert.alert('Could not save', 'This authority could not be saved. Please try again.');
+      }
+    },
+    [savingResult, addSource],
+  );
 
   const renderSavedSource = ({ item }: { item: VerifiedAuthority }) => (
     <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -101,11 +143,21 @@ export default function SourcesScreen() {
           {item.excerpt}
         </Text>
       ) : null}
-      <View style={[styles.authorityBadge, { backgroundColor: colors.verifiedBg }]}>
-        <Feather name="award" size={11} color={colors.verifiedText} />
-        <Text style={[styles.authorityText, { color: colors.verifiedText }]}>
-          {authorityLabel(item.sourceType)}
-        </Text>
+      <View style={styles.resultFooter}>
+        <View style={[styles.authorityBadge, { backgroundColor: colors.verifiedBg }]}>
+          <Feather name="award" size={11} color={colors.verifiedText} />
+          <Text style={[styles.authorityText, { color: colors.verifiedText }]}>
+            {authorityLabel(item.sourceType)}
+          </Text>
+        </View>
+        <Pressable
+          onPress={() => startSaveToCase(item)}
+          hitSlop={8}
+          style={({ pressed }) => [styles.saveBtn, pressed && { opacity: 0.6 }]}
+        >
+          <Feather name="bookmark" size={13} color={colors.primary} />
+          <Text style={[styles.saveBtnText, { color: colors.primary }]}>Save to case</Text>
+        </Pressable>
       </View>
     </Pressable>
   );
@@ -216,6 +268,53 @@ export default function SourcesScreen() {
           ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
         />
       )}
+
+      {/* ── Case picker (save library result to a case) ── */}
+      <Modal
+        visible={savingResult !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSavingResult(null)}
+        statusBarTranslucent
+      >
+        <Pressable style={styles.pickerBackdrop} onPress={() => setSavingResult(null)} />
+        <View
+          style={[
+            styles.pickerSheet,
+            { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom, 16) + 8 },
+          ]}
+        >
+          <View style={[styles.dragBar, { backgroundColor: colors.border }]} />
+          <Text style={[styles.pickerTitle, { color: colors.text }]}>Save to which case?</Text>
+          {savingResult ? (
+            <Text style={[styles.pickerSub, { color: colors.textMuted }]} numberOfLines={1}>
+              {savingResult.citation}
+            </Text>
+          ) : null}
+          <FlatList
+            data={cases}
+            keyExtractor={(item) => item.id}
+            style={styles.pickerList}
+            keyboardShouldPersistTaps="handled"
+            renderItem={({ item }) => (
+              <Pressable
+                onPress={() => saveToCase(item)}
+                style={({ pressed }) => [
+                  styles.pickerRow,
+                  { borderBottomColor: colors.border },
+                  pressed && { opacity: 0.6 },
+                ]}
+              >
+                <Feather name="folder" size={16} color={colors.primary} />
+                <Text style={[styles.pickerRowText, { color: colors.text }]} numberOfLines={1}>
+                  {item.title || 'Untitled case'}
+                </Text>
+                <Feather name="chevron-right" size={16} color={colors.textMuted} />
+              </Pressable>
+            )}
+          />
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -298,6 +397,22 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: 'Inter_600SemiBold',
   },
+  resultFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  saveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 2,
+  },
+  saveBtnText: {
+    fontSize: 13,
+    fontFamily: 'Inter_500Medium',
+  },
   cardBottom: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -335,4 +450,39 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
   },
   retryText: { fontSize: 14, fontFamily: 'Inter_500Medium' },
+
+  // Case picker sheet
+  pickerBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  pickerSheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    maxHeight: '70%',
+  },
+  dragBar: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 14,
+  },
+  pickerTitle: { fontSize: 18, fontFamily: 'Inter_600SemiBold' },
+  pickerSub: { fontSize: 13, fontFamily: 'Inter_400Regular', marginTop: 2, marginBottom: 8 },
+  pickerList: { marginTop: 6 },
+  pickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 15,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  pickerRowText: { flex: 1, fontSize: 15, fontFamily: 'Inter_500Medium' },
 });

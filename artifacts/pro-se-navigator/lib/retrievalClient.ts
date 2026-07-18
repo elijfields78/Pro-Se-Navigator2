@@ -76,5 +76,11 @@ export async function searchLegalLibrary(
   }
 
   const body = (await resp.json()) as { results?: LegalSearchResult[] };
-  return body.results ?? [];
+  const results = body.results ?? [];
+  // The server's ts_headline highlights matched terms with <b>…</b>. React
+  // Native <Text> has no HTML, so strip the tags for plain-text display.
+  return results.map((r) => ({
+    ...r,
+    excerpt: r.excerpt.replace(/<\/?b>/gi, ''),
+  }));
 }
