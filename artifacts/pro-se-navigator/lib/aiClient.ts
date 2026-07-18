@@ -141,3 +141,34 @@ export async function draftDocument(params: {
   if (!resp.ok) throw new Error(aiError(resp.status));
   return (await resp.json()) as DraftAnswer;
 }
+
+export type VerificationStatus = 'verified' | 'ambiguous' | 'not_found' | 'error';
+
+export interface CitationVerification {
+  citation: string;
+  status: VerificationStatus;
+  caseName?: string;
+  url?: string;
+}
+
+/** Verification gate — checks case-law citations in text against CourtListener. */
+export async function verifyCitations(text: string): Promise<CitationVerification[]> {
+  if (!API_BASE) {
+    throw new Error('Citation verification is not available yet. (API URL not configured.)');
+  }
+
+  let resp: Response;
+  try {
+    resp = await fetch(`${API_BASE}/api/ai/verify`, {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ text }),
+    });
+  } catch {
+    throw new Error('Could not reach the verification service. Check your connection and try again.');
+  }
+
+  if (!resp.ok) throw new Error(aiError(resp.status));
+  const body = (await resp.json()) as { results?: CitationVerification[] };
+  return body.results ?? [];
+}

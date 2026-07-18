@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { isAiConfigured, generateNavigatorResponse, generateDraft } from "../lib/ai";
 import { isResearchConfigured, researchWithPerplexity } from "../lib/perplexity";
+import { isVerificationConfigured, verifyCitationsInText } from "../lib/courtlistener";
 import { rateLimit } from "../middlewares/rateLimit";
 import { requireAuth } from "../middlewares/auth";
 
@@ -28,6 +29,10 @@ const DraftRequest = z.object({
   instructions: z.string().trim().min(1, "instructions are required").max(2000),
   caseType: z.enum(["general", "fcra", "traffic", "ifp"]).optional(),
   caseContext: z.string().trim().max(2000).optional(),
+});
+
+const VerifyRequest = z.object({
+  text: z.string().trim().min(1, "text is required").max(64000),
 });
 
 router.post("/ai/chat", aiRateLimit, aiAuth, async (req, res) => {
@@ -104,6 +109,32 @@ router.post("/ai/draft", aiRateLimit, aiAuth, async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "ai draft failed");
     return res.status(500).json({ error: "draft_failed" });
+  }
+});
+
+// Verification gate — checks case-law citations in text against CourtListener.
+router.post("/ai/verify", aiRateLimit, aiAuth, async (req, res) => {
+  const parsed = VerifyRequest.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: "invalid_request",
+      details: parsed.error.flatten(),
+    });
+  }
+
+  if (!isVerificationConfigured()) {
+    return res.status(503).json({
+      error: "verification_unavailable",
+      message: "Citation verification is not configured yet (COURTLISTENER_API_TOKEN missing).",
+    });
+  }
+
+  try {
+    const results = await verifyCitationsInText(parsed.data.text);
+    return res.json({ results, count: results.length });
+  } catch (err) {
+    req.log.error({ err }, "citation verification failed");
+    return res.status(500).json({ error: "verification_failed" });
   }
 });
 
