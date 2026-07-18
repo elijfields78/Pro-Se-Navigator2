@@ -22,10 +22,13 @@ import {
   askNavigator,
   researchWeb,
   draftDocument,
+  verifyCitations,
   isAiConfigured,
   type AiCitation,
   type ResearchCitation,
   type DraftType,
+  type CitationVerification,
+  type VerificationStatus,
 } from '@/lib/aiClient';
 
 type Mode = 'explain' | 'research' | 'draft';
@@ -59,7 +62,21 @@ interface Turn {
   disclaimer?: string;
   model?: string;
   error?: boolean;
+  /** Case-law citations found in this answer, checked against two sources. */
+  verifications?: CitationVerification[];
+  verifying?: boolean;
 }
+
+const VERIFY_BADGE: Record<
+  VerificationStatus,
+  { label: string; icon: string; tone: 'good' | 'warn' | 'muted' }
+> = {
+  verified: { label: 'Verified', icon: 'check-circle', tone: 'good' },
+  corroborated: { label: 'Confirmed (web)', icon: 'check-circle', tone: 'good' },
+  ambiguous: { label: 'Multiple records', icon: 'alert-triangle', tone: 'warn' },
+  unverified: { label: 'Unverified — verify independently', icon: 'alert-triangle', tone: 'warn' },
+  error: { label: 'Check failed', icon: 'help-circle', tone: 'muted' },
+};
 
 function genId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -86,6 +103,20 @@ export default function NavigatorScreen() {
     : undefined;
 
   const configured = isAiConfigured();
+
+  // Best-effort: check any case-law citations in an answer against the
+  // two-source verification agent, then badge them. Silent on failure.
+  const verifyTurn = useCallback(async (id: string, text: string) => {
+    setTurns((prev) => prev.map((t) => (t.id === id ? { ...t, verifying: true } : t)));
+    try {
+      const results = await verifyCitations(text);
+      setTurns((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, verifications: results, verifying: false } : t)),
+      );
+    } catch {
+      setTurns((prev) => prev.map((t) => (t.id === id ? { ...t, verifying: false } : t)));
+    }
+  }, []);
 
   const send = useCallback(async () => {
     const value = input.trim();
@@ -143,6 +174,7 @@ export default function NavigatorScreen() {
         };
       }
       setTurns((prev) => [...prev, agentTurn]);
+      void verifyTurn(agentTurn.id, agentTurn.text);
     } catch (err) {
       setTurns((prev) => [
         ...prev,
@@ -157,7 +189,7 @@ export default function NavigatorScreen() {
     } finally {
       setBusy(false);
     }
-  }, [input, busy, mode, draftType, activeCase, caseContext]);
+  }, [input, busy, mode, draftType, activeCase, caseContext, verifyTurn]);
 
   const placeholder =
     mode === 'research'
@@ -378,6 +410,62 @@ function AgentBubble({ turn, colors }: { turn: Turn; colors: ReturnType<typeof u
         </View>
       ) : null}
 
+      {/* Case-law verification (two-source: CourtListener + web) */}
+      {turn.verifying ? (
+        <View style={styles.verifyingRow}>
+          <ActivityIndicator size="small" color={colors.textMuted} />
+          <Text style={[styles.verifyingText, { color: colors.textMuted }]}>
+            Checking case citations…
+          </Text>
+        </View>
+      ) : null}
+      {turn.verifications && turn.verifications.length > 0 ? (
+        <View style={styles.verifyBox}>
+          <Text style={[styles.citationsTitle, { color: colors.textMuted }]}>
+            Case citations checked
+          </Text>
+          {turn.verifications.map((v, i) => {
+            const badge = VERIFY_BADGE[v.status];
+            const toneColor =
+              badge.tone === 'good'
+                ? colors.verifiedText
+                : badge.tone === 'warn'
+                  ? colors.deadlineText
+                  : colors.textMuted;
+            const toneBg =
+              badge.tone === 'good'
+                ? colors.verifiedBg
+                : badge.tone === 'warn'
+                  ? colors.deadlineBg
+                  : colors.muted;
+            const url = v.primaryUrl ?? v.secondaryUrl;
+            return (
+              <View key={i} style={[styles.verifyRow, { borderColor: colors.border }]}>
+                <View style={styles.verifyTop}>
+                  <Text style={[styles.verifyCite, { color: colors.text }]} numberOfLines={1}>
+                    {v.caseName ? `${v.caseName} — ${v.citation}` : v.citation}
+                  </Text>
+                  {url ? (
+                    <Pressable onPress={() => Linking.openURL(url)} hitSlop={8}>
+                      <Feather name="external-link" size={13} color={colors.primary} />
+                    </Pressable>
+                  ) : null}
+                </View>
+                <View style={[styles.verifyBadge, { backgroundColor: toneBg }]}>
+                  <Feather name={badge.icon as any} size={11} color={toneColor} />
+                  <Text style={[styles.verifyBadgeText, { color: toneColor }]}>{badge.label}</Text>
+                  {v.verifiedBy && v.verifiedBy.length > 0 ? (
+                    <Text style={[styles.verifyBy, { color: toneColor }]}>
+                      · {v.verifiedBy.join(' + ')}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      ) : null}
+
       {/* Sources */}
       {turn.citations && turn.citations.length > 0 ? (
         <View style={styles.citations}>
@@ -457,6 +545,29 @@ const styles = StyleSheet.create({
 
   citations: { gap: 6, marginTop: 2 },
   citationsTitle: { fontSize: 11, fontFamily: 'Inter_600SemiBold', textTransform: 'uppercase', letterSpacing: 0.4 },
+
+  verifyingRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
+  verifyingText: { fontSize: 12, fontFamily: 'Inter_400Regular' },
+  verifyBox: { gap: 6, marginTop: 2 },
+  verifyRow: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    padding: 10,
+    gap: 6,
+  },
+  verifyTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  verifyCite: { flex: 1, fontSize: 13, fontFamily: 'Inter_500Medium' },
+  verifyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  verifyBadgeText: { fontSize: 11, fontFamily: 'Inter_600SemiBold' },
+  verifyBy: { fontSize: 11, fontFamily: 'Inter_400Regular' },
   citationRow: {
     flexDirection: 'row',
     alignItems: 'center',
