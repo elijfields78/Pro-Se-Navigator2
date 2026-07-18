@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
-import { isAiConfigured, generateNavigatorResponse } from "../lib/ai";
+import { isAiConfigured, generateNavigatorResponse, generateDraft } from "../lib/ai";
 import { isResearchConfigured, researchWithPerplexity } from "../lib/perplexity";
 import { rateLimit } from "../middlewares/rateLimit";
 import { requireAuth } from "../middlewares/auth";
@@ -21,6 +21,13 @@ const ChatRequest = z.object({
 const ResearchRequest = z.object({
   query: z.string().trim().min(1, "query is required").max(2000),
   caseContext: z.string().trim().max(1000).optional(),
+});
+
+const DraftRequest = z.object({
+  documentType: z.enum(["motion", "letter", "form", "other"]),
+  instructions: z.string().trim().min(1, "instructions are required").max(2000),
+  caseType: z.enum(["general", "fcra", "traffic", "ifp"]).optional(),
+  caseContext: z.string().trim().max(2000).optional(),
 });
 
 router.post("/ai/chat", aiRateLimit, aiAuth, async (req, res) => {
@@ -71,6 +78,32 @@ router.post("/ai/research", aiRateLimit, aiAuth, async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "ai research failed");
     return res.status(500).json({ error: "research_failed" });
+  }
+});
+
+// Drafting agent — Claude Opus 4.8 generates a reviewable document draft.
+router.post("/ai/draft", aiRateLimit, aiAuth, async (req, res) => {
+  const parsed = DraftRequest.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: "invalid_request",
+      details: parsed.error.flatten(),
+    });
+  }
+
+  if (!isAiConfigured()) {
+    return res.status(503).json({
+      error: "ai_unavailable",
+      message: "Drafting is not configured yet (ANTHROPIC_API_KEY missing).",
+    });
+  }
+
+  try {
+    const result = await generateDraft(parsed.data);
+    return res.json(result);
+  } catch (err) {
+    req.log.error({ err }, "ai draft failed");
+    return res.status(500).json({ error: "draft_failed" });
   }
 });
 

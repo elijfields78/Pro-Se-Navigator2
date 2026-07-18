@@ -104,3 +104,40 @@ export async function researchWeb(params: {
   if (!resp.ok) throw new Error(aiError(resp.status));
   return (await resp.json()) as ResearchAnswer;
 }
+
+export type DraftType = 'motion' | 'letter' | 'form' | 'other';
+
+export interface DraftAnswer {
+  text: string;
+  /** [BRACKETED] placeholders the user still needs to fill in. */
+  placeholders: string[];
+  citations: AiCitation[];
+  model: string;
+  disclaimer: string;
+}
+
+/** Drafting agent (Claude Opus 4.8) — generates a reviewable document draft. */
+export async function draftDocument(params: {
+  documentType: DraftType;
+  instructions: string;
+  caseType?: string;
+  caseContext?: string;
+}): Promise<DraftAnswer> {
+  if (!API_BASE) {
+    throw new Error('Drafting is not available yet. (API URL not configured.)');
+  }
+
+  let resp: Response;
+  try {
+    resp = await fetch(`${API_BASE}/api/ai/draft`, {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify(params),
+    });
+  } catch {
+    throw new Error('Could not reach the drafting service. Check your connection and try again.');
+  }
+
+  if (!resp.ok) throw new Error(aiError(resp.status));
+  return (await resp.json()) as DraftAnswer;
+}

@@ -48,6 +48,106 @@ Rules you must follow:
 - Write in plain English a non-lawyer can follow. Be concise and practical.
 - End with a one-line reminder that this is legal information, not legal advice, and that they should confirm anything important with a licensed attorney in their jurisdiction.`;
 
+// Mandatory review notice attached to every generated draft. The UI must show
+// this — a generated document is user-controlled work product, never a filing.
+export const DRAFT_DISCLAIMER =
+  "Draft for review. Verify every fact, date, name, citation, signature requirement, service requirement, formatting rule, filing requirement, and court-specific instruction before using this document. This is not legal advice and this document has not been filed, reviewed by an attorney, or checked for legal sufficiency.";
+
+const DRAFT_SYSTEM_PROMPT = `You are drafting a legal document that a self-represented litigant (pro se) will REVIEW, complete, and decide whether to use. You are not a lawyer and this is not legal advice.
+
+Rules you must follow:
+- Produce a clear, well-structured draft appropriate to the requested document type (e.g. a motion has a caption, an introduction, the relief sought, supporting argument, and a signature block; a letter has a header, body, and closing).
+- NEVER invent facts. Do not make up case numbers, party names, dates, dollar amounts, addresses, court names, or judge names. Wherever you need a fact you were not given, insert a clearly marked placeholder in SQUARE BRACKETS AND ALL CAPS, e.g. [CASE NUMBER], [DATE OF SERVICE], [YOUR NAME]. The user will fill these in.
+- Ground any legal assertion in the authorities provided under "RETRIEVED AUTHORITIES" and cite them inline with a bracketed number like [1]. If you have no authority for a legal point, phrase it cautiously and tell the user to verify it — do not fabricate a citation, rule, or case.
+- Do not compute specific filing deadlines; the app has a separate deterministic calculator for that.
+- Do NOT claim or imply the document is filed, ready to file, legally sufficient, or attorney-approved.
+- Formatting, service, and filing rules vary by court. Include a short note reminding the user to check their specific court's local rules and formatting requirements.
+- Write in plain, professional English.`;
+
+export type DraftType = "motion" | "letter" | "form" | "other";
+
+export interface DraftResponse {
+  text: string;
+  /** Unique [BRACKETED] placeholders the user still needs to fill in. */
+  placeholders: string[];
+  citations: NavigatorResponse["citations"];
+  model: string;
+  disclaimer: string;
+}
+
+/** Extract unique ALL-CAPS-ish bracketed placeholders, excluding citation
+ *  markers like [1]. Used so the UI can list what the user still must supply. */
+function extractPlaceholders(text: string): string[] {
+  const matches = text.match(/\[[^\]]+\]/g) ?? [];
+  const seen = new Set<string>();
+  for (const m of matches) {
+    const inner = m.slice(1, -1).trim();
+    if (/^\d+$/.test(inner)) continue; // citation marker, not a placeholder
+    seen.add(m);
+  }
+  return Array.from(seen);
+}
+
+/**
+ * Generate a reviewable legal document draft with Claude Opus 4.8. Grounds legal
+ * assertions in retrieved corpus authorities, flags every missing fact as a
+ * placeholder, and never represents the output as a filing.
+ */
+export async function generateDraft(params: {
+  documentType: DraftType;
+  instructions: string;
+  caseType?: string;
+  caseContext?: string;
+}): Promise<DraftResponse> {
+  const { documentType, instructions, caseType, caseContext } = params;
+
+  let authorities: RetrievalResult[] = [];
+  try {
+    authorities = await searchLegalCorpus(`${documentType} ${instructions}`, {
+      caseType,
+      limit: 6,
+    });
+  } catch {
+    authorities = [];
+  }
+
+  const model = selectModel("legal_chat");
+  const userContent = [
+    `DOCUMENT TYPE: ${documentType}`,
+    caseContext ? `CASE CONTEXT (facts known so far): ${caseContext}` : null,
+    buildAuthoritiesBlock(authorities),
+    `DRAFTING INSTRUCTIONS: ${instructions}`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  const response = await getClient().messages.create({
+    model,
+    max_tokens: 8000,
+    system: DRAFT_SYSTEM_PROMPT,
+    messages: [{ role: "user", content: userContent }],
+  });
+
+  const text = response.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("");
+
+  return {
+    text,
+    placeholders: extractPlaceholders(text),
+    citations: authorities.map((r, i) => ({
+      n: i + 1,
+      citation: r.citation,
+      url: r.url,
+      heading: r.heading,
+      excerpt: r.excerpt,
+    })),
+    model,
+    disclaimer: DRAFT_DISCLAIMER,
+  };
+}
+
 export interface NavigatorResponse {
   text: string;
   citations: Array<{
