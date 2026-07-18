@@ -17,8 +17,8 @@ import {
 import { CaseMemory } from '../lib/memory/index';
 import { VerifiedCitation } from '../lib/verification/index';
 
-const CAPTION = 'ELI FIELDS, Plaintiff, v. JPMORGAN CHASE BANK, N.A., Defendant.';
-const SIGNATURE = 'Eli Fields, Plaintiff Pro Se';
+const CAPTION = 'JANE ROE, Plaintiff, v. ACME BANK, N.A., Defendant.';
+const SIGNATURE = 'Jane Roe, Plaintiff Pro Se';
 
 function memory(overrides: Partial<CaseMemory> = {}): CaseMemory {
   return {
@@ -49,7 +49,7 @@ function verifiedCite(citation: string, status: VerifiedCitation['status']): Ver
 test('caption lock blocks a drifted caption and demands one when unset', () => {
   assert.equal(checkCaptionLock(doc(), ctx()).length, 0);
 
-  const drifted = checkCaptionLock(doc({ caption: 'GLOBAL LEGENDS TRUST v. CHASE' }), ctx());
+  const drifted = checkCaptionLock(doc({ caption: 'ROE FAMILY TRUST v. ACME BANK' }), ctx());
   assert.equal(drifted.length, 1);
   assert.equal(drifted[0]!.severity, 'blocking');
   assert.equal(drifted[0]!.suggestion, CAPTION);
@@ -60,7 +60,7 @@ test('caption lock blocks a drifted caption and demands one when unset', () => {
 
 test('signature lock mirrors caption-lock behavior', () => {
   assert.equal(checkSignatureLock(doc(), ctx()).length, 0);
-  const bad = checkSignatureLock(doc({ signatureBlock: 'Dawn M. Fields' }), ctx());
+  const bad = checkSignatureLock(doc({ signatureBlock: 'John Q. Public' }), ctx());
   assert.equal(bad.length, 1);
   assert.equal(bad[0]!.severity, 'blocking');
 });
@@ -124,8 +124,8 @@ test('factual consistency flags unreferenced assertions (advisory)', () => {
   const findings = checkFactualConsistency(
     doc({
       factualAssertions: [
-        { text: 'Chase received the mailing on December 12, 2025.', refs: ['EV-003'] },
-        { text: 'Chase never responded.', refs: [] },
+        { text: 'The bank received the mailing on December 12, 2025.', refs: ['EV-003'] },
+        { text: 'The bank never responded.', refs: [] },
       ],
     }),
     ctx(),

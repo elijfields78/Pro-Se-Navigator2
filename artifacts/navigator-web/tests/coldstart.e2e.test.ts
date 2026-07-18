@@ -1,9 +1,10 @@
 /**
- * End-to-end: the cold-start workflow on the Chase fact pattern (Cold-Start
- * §16). Mechanics-only by owner decision: the test proves phases advance
- * only through their gates, artifacts accumulate, guardrails fire on the
- * complaint export, and the reactive handoff carries everything — it does
- * NOT hard-code legal conclusions (the viability engine computes honestly).
+ * End-to-end: the cold-start workflow on a consumer-banking fact pattern
+ * shaped like the spec's §16 worked example, with FICTIONAL parties (owner
+ * direction: no real case names anywhere in the codebase). Mechanics-only:
+ * the test proves phases advance only through their gates, artifacts
+ * accumulate, guardrails fire on the complaint export, and the reactive
+ * handoff carries everything — it does NOT hard-code legal conclusions.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -15,11 +16,11 @@ import { runExportGate } from '../lib/guardrails/index';
 import { InMemoryStore } from '../lib/memory/index';
 import { VerifiedCitation } from '../lib/verification/index';
 
-const CAPTION = 'ELI FIELDS, Plaintiff, v. JPMORGAN CHASE BANK, N.A., Defendant.';
-const SIGNATURE = 'Eli Fields, Plaintiff Pro Se';
+const CAPTION = 'JANE ROE, Plaintiff, v. ACME BANK, N.A., Defendant.';
+const SIGNATURE = 'Jane Roe, Plaintiff Pro Se';
 
-const CHASE_STORY =
-  'I applied for a credit card at Chase. Then I sent them a document I believed had value. ' +
+const STORY =
+  'I applied for a credit card at my bank. Then I sent them a document I believed had value. ' +
   'They kept it. Never responded. Never gave me the credit. Never returned the document. ' +
   'It has been eight months. I mailed them certified letters in December 2025 and January 2026.';
 
@@ -29,8 +30,8 @@ test('E2E phase 1: story intake extracts, narrates, and asks only missing gap-fi
   const fakeLlm = async (system: string, _user: string) => {
     if (system.includes('intake listener')) {
       return JSON.stringify({
-        who: ['Chase'],
-        what: 'Applied for credit; sent a document; Chase retained it without response.',
+        who: ['Acme Bank'],
+        what: 'Applied for credit; sent a document; the bank retained it without response.',
         when: ['December 2025', 'January 2026'],
         where: '',
         harm: ['no credit decision', 'document retained'],
@@ -38,11 +39,11 @@ test('E2E phase 1: story intake extracts, narrates, and asks only missing gap-fi
         mentionedDeadlines: [],
       });
     }
-    return 'The user applied for credit with Chase, mailed documents by certified mail in December 2025 and January 2026, and received no response over eight months.';
+    return 'The user applied for credit with a bank, mailed documents by certified mail in December 2025 and January 2026, and received no response over eight months.';
   };
 
-  const result = await runStoryIntake(CHASE_STORY, fakeLlm);
-  assert.equal(result.extraction.who[0], 'Chase');
+  const result = await runStoryIntake(STORY, fakeLlm);
+  assert.equal(result.extraction.who[0], 'Acme Bank');
   assert.ok(result.narrative.length > 20);
   // Gap-fillers: where + arbitration + amount are missing; when/priorContact are not.
   assert.ok(result.questions.some((q) => q.includes('Where do you live')));
@@ -60,7 +61,7 @@ test('story extraction survives malformed model output (falls back to empty sche
 
 // ── The nine-phase walk ─────────────────────────────────────────────────────
 
-test('E2E: nine phases gate correctly on the Chase pattern and hand off to reactive', async () => {
+test('E2E: nine phases gate correctly on the worked-example pattern and hand off to reactive', async () => {
   const machine = createColdStartMachine();
   const memory = new InMemoryStore();
   const a: ColdStartArtifacts = {};
@@ -105,21 +106,21 @@ test('E2E: nine phases gate correctly on the Chase pattern and hand off to react
   assert.equal(machine.current, 'pre_suit_steps');
 
   // Phase 5 — arbitration check + identified requirements must be satisfied.
-  a.preSuitRequired = ['LUTPA pre-suit notice', 'Demand letter'];
+  a.preSuitRequired = ['State UDAP pre-suit notice', 'Demand letter'];
   res = machine.advance(a);
   assert.equal(res.ok, false);
   a.arbitrationChecked = true;
-  a.preSuitCompleted = ['LUTPA pre-suit notice'];
+  a.preSuitCompleted = ['State UDAP pre-suit notice'];
   res = machine.advance(a);
   assert.equal(res.ok, false, 'demand letter still outstanding');
-  a.preSuitCompleted = ['LUTPA pre-suit notice', 'Demand letter'];
+  a.preSuitCompleted = ['State UDAP pre-suit notice', 'Demand letter'];
   assert.equal(machine.advance(a).ok, true);
   assert.equal(machine.current, 'court_selection');
 
   // Phase 6 — court profile + the "do you actually want to do this" gate.
   a.courtProfile = {
-    courtName: 'U.S. District Court, Middle District of Louisiana',
-    division: 'Baton Rouge',
+    courtName: 'U.S. District Court, Southern District of Texas',
+    division: 'Houston',
     filingMethod: 'pacer',
     localRulesLoaded: true,
   };
@@ -141,7 +142,7 @@ test('E2E: nine phases gate correctly on the Chase pattern and hand off to react
 
   // A draft containing banned vocabulary AND an unconfirmed statute is blocked.
   const badGate = runExportGate(
-    { title: 'Complaint', body: 'Chase deceived Plaintiff.', caption: CAPTION, signatureBlock: SIGNATURE },
+    { title: 'Complaint', body: 'Defendant deceived Plaintiff.', caption: CAPTION, signatureBlock: SIGNATURE },
     { memory: mem, verification },
   );
   assert.equal(badGate.pass, false);
@@ -165,7 +166,7 @@ test('E2E: nine phases gate correctly on the Chase pattern and hand off to react
   assert.equal(machine.current, 'service_and_docketing');
 
   // Phase 9 → finished.
-  a.docketNumber = '3:26-cv-00287';
+  a.docketNumber = '1:26-cv-01234';
   a.serviceCompleted = true;
   res = machine.advance(a);
   assert.equal(res.ok, true);
@@ -174,7 +175,7 @@ test('E2E: nine phases gate correctly on the Chase pattern and hand off to react
 
   // Handoff: nothing lost (Cold-Start §15).
   const handoff = buildReactiveHandoff(a);
-  assert.equal(handoff.docketNumber, '3:26-cv-00287');
+  assert.equal(handoff.docketNumber, '1:26-cv-01234');
   assert.equal(handoff.selectedTheories.length, 3);
   assert.equal(handoff.evidenceCount, 5);
   assert.equal(handoff.viabilityReport.length, 3);

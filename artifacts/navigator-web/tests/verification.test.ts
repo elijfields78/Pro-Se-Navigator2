@@ -19,7 +19,7 @@ import {
 
 test('extracts U.S.C., C.F.R., FRCP, and Louisiana citations from prose', () => {
   const text =
-    'Chase provided no adverse-action notice under 15 U.S.C. § 1691(d). ' +
+    'The lender provided no adverse-action notice under 15 U.S.C. § 1691(d). ' +
     'The CIP requirement in 31 C.F.R. § 1020.220 applies. Substitution is ' +
     'governed by Fed. R. Civ. P. 17(a)(3), and dishonor evidence by ' +
     'La. R.S. § 10:3-505. Deposit obligations arise under La. Civ. Code art. 2926.';
