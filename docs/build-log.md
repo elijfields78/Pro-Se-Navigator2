@@ -43,3 +43,30 @@ Running record of architectural decisions. Newest entries at the bottom.
   is the only date the UI surfaces in reminders (guardrail #6).
 - Citations table doubles as the Authority Bank: a citation row is immutable
   once `verified_at` is set; re-verification inserts a new row version.
+
+## 2026-07-18 — Day 3: Verification service (Layer 2)
+
+- `lib/verification/` in navigator-web. Ported and hardened the v1 two-source
+  verifier: CourtListener citation-lookup is the extractor + primary verifier
+  for case citations; Perplexity (strict verdict format, budgeted to 5 calls
+  per document) is an independent secondary check for cases the primary
+  source can't confirm. Both adapters take an injectable `fetch`; response
+  mapping and verdict parsing are pure functions with unit tests.
+- Statutes / rules / regulations are extracted locally (U.S.C., C.F.R.,
+  Fed. R. Civ. P., La. R.S., La. Civ. Code — conservative patterns). No free
+  primary-source API is wired for them yet, so per the master prompt they
+  return `needs_user_confirmation`, which **blocks export** until the user
+  explicitly confirms against source text; confirmations are recorded
+  (who/when) in the verification report. eCFR / govinfo adapters are the
+  designated upgrade path.
+- `verificationGate()` is the hard gate: pass only when every citation is
+  `verified`, `corroborated`, or user-confirmed. `ambiguous`, `not_found`,
+  and `error` always block. Zero-citation documents pass trivially.
+- `buildVerificationReport()` produces the per-export report (totals, per-
+  citation entries, user-confirmation stamps, exportable flag) — stored in
+  `nav_assets.verification_report`.
+- No reasoning model anywhere in the loop: lookups, regex extraction, and a
+  strict-format verdict parser only.
+- Tests: 8 passing (extraction incl. trailing-period bug fix, CourtListener
+  row mapping, verdict parsing, orchestrator merge/corroboration/honest
+  failure, gate semantics, report assembly).
