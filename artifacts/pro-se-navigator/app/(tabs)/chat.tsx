@@ -48,6 +48,15 @@ export default function ChatTab() {
           >
             <Text style={[styles.emptyBtnText, { color: colors.amberText }]}>New case</Text>
           </Pressable>
+          <Pressable
+            onPress={() => router.push('/navigator')}
+            style={({ pressed }) => [styles.askAiLink, pressed && { opacity: 0.6 }]}
+          >
+            <Feather name="zap" size={15} color={colors.primary} />
+            <Text style={[styles.askAiLinkText, { color: colors.primary }]}>
+              Or ask the Navigator AI anything
+            </Text>
+          </Pressable>
         </View>
       </View>
     );
@@ -74,6 +83,14 @@ export default function ChatTab() {
           <Text style={[styles.caseType, { color: colors.textMuted }]}>
             {CASE_TYPE_LABELS[activeCase.caseType]}
           </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => router.push('/navigator')}
+          style={[styles.aiBtn, { backgroundColor: colors.verifiedBg }]}
+          hitSlop={8}
+        >
+          <Feather name="zap" size={13} color={colors.primary} />
+          <Text style={[styles.aiBtnText, { color: colors.primary }]}>Ask AI</Text>
         </Pressable>
         <Pressable
           onPress={() => router.push(`/case/${activeCase.id}`)}
@@ -110,6 +127,22 @@ const styles = StyleSheet.create({
   caseName: { fontSize: 15, fontFamily: 'Inter_500Medium' },
   caseType: { fontSize: 12, fontFamily: 'Inter_400Regular', marginTop: 1 },
   expandBtn: { padding: 4 },
+  aiBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  aiBtnText: { fontSize: 12, fontFamily: 'Inter_600SemiBold' },
+  askAiLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 14,
+  },
+  askAiLinkText: { fontSize: 14, fontFamily: 'Inter_500Medium' },
   empty: {
     flex: 1,
     alignItems: 'center',

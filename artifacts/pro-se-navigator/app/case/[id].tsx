@@ -9,6 +9,7 @@ import {
   TextInput,
   Alert,
   FlatList,
+  Linking,
   KeyboardAvoidingView as RNKeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -19,27 +20,56 @@ import { useColors } from '@/hooks/useColors';
 import { useCases } from '@/contexts/CasesContext';
 import CaseChat from '@/components/CaseChat';
 import ArtifactCard from '@/components/ArtifactCard';
+import DocumentCard from '@/components/DocumentCard';
 import { CASE_TYPE_LABELS } from '@/components/CaseCard';
+import { CaseDocument } from '@/contexts/types';
 import * as Haptics from 'expo-haptics';
 
-type CaseDetailViewMode = 'chat' | 'artifacts';
+type CaseDetailViewMode = 'chat' | 'artifacts' | 'documents';
 
 export default function CaseDetailScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { cases, getCaseMessages, artifacts, deleteCase, updateCaseTitle, deleteArtifact, isLoading } = useCases();
+  const {
+    cases, getCaseMessages, artifacts, deleteCase, updateCaseTitle, deleteArtifact,
+    getCaseDocuments, deleteDocument, getDocumentUrl, isLoading,
+  } = useCases();
 
   const [activeView, setActiveView] = useState<CaseDetailViewMode>('chat');
   const [menuVisible, setMenuVisible] = useState(false);
   const [renameVisible, setRenameVisible] = useState(false);
   const [renameText, setRenameText] = useState('');
+  const [openingDocId, setOpeningDocId] = useState<string | null>(null);
 
   const caseItem = cases.find((c) => c.id === id);
   const msgs = caseItem ? getCaseMessages(id) : [];
   const caseArtifacts = artifacts
     .filter((a) => a.caseId === id)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const caseDocuments = getCaseDocuments(id)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  const handleOpenDocument = async (doc: CaseDocument) => {
+    if (openingDocId) return;
+    setOpeningDocId(doc.id);
+    try {
+      const url = await getDocumentUrl(doc.id);
+      await Linking.openURL(url);
+    } catch (err) {
+      console.error('[CaseDetail] open document failed:', err);
+      Alert.alert('Could not open', 'This document could not be opened. Please try again.');
+    } finally {
+      setOpeningDocId(null);
+    }
+  };
+
+  const handleDeleteDocument = (doc: CaseDocument) => {
+    deleteDocument(doc.id).catch((err) => {
+      console.error('[CaseDetail] delete document failed:', err);
+      Alert.alert('Could not delete', 'This document could not be deleted. Please try again.');
+    });
+  };
 
   if (isLoading) {
     return (
@@ -158,16 +188,41 @@ export default function CaseDetailScreen() {
               </View>
             )}
           </Pressable>
+          <Pressable
+            style={[
+              styles.segmentTab,
+              activeView === 'documents' && [styles.segmentTabActive, { backgroundColor: colors.surface }],
+            ]}
+            onPress={() => { Haptics.selectionAsync(); setActiveView('documents'); }}
+          >
+            <Text style={[styles.segmentLabel, { color: activeView === 'documents' ? colors.text : colors.textMuted }]}>
+              Files
+            </Text>
+            {caseDocuments.length > 0 && (
+              <View style={[styles.countBadge, { backgroundColor: colors.primary }]}>
+                <Text style={styles.countBadgeText}>{caseDocuments.length}</Text>
+              </View>
+            )}
+          </Pressable>
         </View>
       </View>
 
       {/* ── Content ── */}
-      {activeView === 'chat' ? (
-        <CaseChat caseId={id} messages={msgs} />
-      ) : (
+      {activeView === 'chat' && <CaseChat caseId={id} messages={msgs} />}
+      {activeView === 'artifacts' && (
         <ArtifactsView
           artifacts={caseArtifacts}
           onDelete={deleteArtifact}
+          insets={insets}
+          colors={colors}
+        />
+      )}
+      {activeView === 'documents' && (
+        <DocumentsView
+          documents={caseDocuments}
+          onOpen={handleOpenDocument}
+          onDelete={handleDeleteDocument}
+          openingDocId={openingDocId}
           insets={insets}
           colors={colors}
         />
@@ -279,6 +334,55 @@ function ArtifactsView({
       keyExtractor={(item) => item.id}
       renderItem={({ item }) => (
         <ArtifactCard artifact={item} onDelete={() => onDelete(item.id)} />
+      )}
+      contentContainerStyle={[styles.artifactList, { paddingBottom: insets.bottom + 24 }]}
+      showsVerticalScrollIndicator={false}
+      ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+    />
+  );
+}
+
+/* ── Documents list ──────────────────────────────────────────────────────── */
+function DocumentsView({
+  documents,
+  onOpen,
+  onDelete,
+  openingDocId,
+  insets,
+  colors,
+}: {
+  documents: CaseDocument[];
+  onOpen: (doc: CaseDocument) => void;
+  onDelete: (doc: CaseDocument) => void;
+  openingDocId: string | null;
+  insets: { bottom: number };
+  colors: ReturnType<typeof useColors>;
+}) {
+  if (documents.length === 0) {
+    return (
+      <View style={styles.emptyArtifacts}>
+        <View style={[styles.emptyIcon, { backgroundColor: colors.verifiedBg }]}>
+          <Feather name="paperclip" size={26} color={colors.primary} />
+        </View>
+        <Text style={[styles.emptyTitle, { color: colors.text }]}>No files yet</Text>
+        <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
+          Attach photos or documents from the chat using the + button, and they'll be saved to this case here.
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <FlatList
+      data={documents}
+      keyExtractor={(item) => item.id}
+      renderItem={({ item }) => (
+        <DocumentCard
+          document={item}
+          onPress={() => onOpen(item)}
+          onDelete={() => onDelete(item)}
+          opening={openingDocId === item.id}
+        />
       )}
       contentContainerStyle={[styles.artifactList, { paddingBottom: insets.bottom + 24 }]}
       showsVerticalScrollIndicator={false}

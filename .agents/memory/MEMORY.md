@@ -1,3 +1,4 @@
 - [Phase 2 Supabase backend](phase2-supabase.md) — auth replaced with Supabase, CasesContext uses Supabase tables with RLS; see file for schema, env var setup, and Apple auth notes
+- [Phase 5a DB architecture](phase5a-db-architecture.md) — DATABASE_URL → Replit built-in Postgres (helium), NOT Supabase; legal corpus lives there, not in Supabase
 - [Deadline generation architecture](deadline-generation.md) — Rule 6 calculator, PendingFollowUp discriminated union, addArtifact→estimate→DeadlineDateEntry→confirmed flow
 - [RN shadow + overflow conflict](rn-shadow-overflow.md) — overflow:hidden on same View clips iOS shadow; split into outer shadow View + inner overflow:hidden View, or drop overflow:hidden when children have no colored backgrounds

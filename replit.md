@@ -11,7 +11,7 @@ Step-by-step legal guidance for self-represented (pro se) litigants. Organizes a
 ## Stack
 
 - Expo (React Native), iOS-first, Expo Router file-based navigation
-- TypeScript, AsyncStorage (local persistence — Supabase in future phases)
+- TypeScript, Supabase (Postgres + Auth + RLS) for all persistence
 - React Query (@tanstack/react-query)
 - Inter font (400/500/600/700)
 - pnpm workspaces, Node.js 24, TypeScript 5.9
@@ -48,16 +48,16 @@ artifacts/pro-se-navigator/
 ## Architecture decisions
 
 - **Intake as state machine**: each case has `intakeTurnIndex` (0-based). Each user message advances the turn. At `script.length`, a wrap-up message is sent. Beyond that, post-intake canned response.
-- **CasesContext is user-scoped**: all AsyncStorage keys include `userId`, so switching accounts never leaks data.
+- **CasesContext is user-scoped**: all Supabase queries filter `.eq('user_id', uid)` and RLS (`auth.uid() = user_id`) enforces it server-side too — belt and suspenders.
 - **Auth gating via AuthGate component**: uses `useSegments` + `useRouter` inside the root layout to redirect unauthenticated users to `/(auth)/login` and authenticated users away from auth screens.
-- **No gradients, no shadows, no heavy borders** — whitespace-only design per spec.
-- **Disclaimer persistent**: on every auth screen and empty states. Pre-filing certification and Supabase RLS come in Phases 2–3.
+- **No gradients, no shadows, no heavy borders** — whitespace-only design per spec. (Note: a later "visual polish pass" commit added card shadows/radius — reconcile with this rule before Phase 9.)
+- **Disclaimer persistent**: on every auth screen and empty states.
 
 ## Product
 
 Case types: General Civil, FCRA / Credit Repair, Traffic, Fee Waiver (IFP). Each has a 4-turn guided intake script. The Navigator speaks first in every case. After intake: wrap-up + free chat (AI router in Phase 6).
 
-Build order from spec: 1 Design system ✅ → 2 Supabase data model → 3 Auth (Supabase) → 4 Case+chat ✅ → 5 RAG → 6 Model router → 7 Verification gate → 8 Deadlines → 9 Multi-agent → 10 Compliance → 11 IFP workflow → 12 FCRA workflow → 13 Traffic workflow → 14 Stripe → 15 Legal framing
+Build order from spec: 1 Design system ✅ → 2 Supabase data model ✅ → 3 Auth (Supabase) ✅ → 4 Case+chat ✅ → 5 RAG → 6 Model router → 7 Verification gate → 8 Deadlines ✅ (deterministic Rule 6 calculator; no LLM involved) → 9 Multi-agent → 10 Compliance → 11 IFP workflow → 12 FCRA workflow → 13 Traffic workflow → 14 Stripe → 15 Legal framing
 
 ## User preferences
 

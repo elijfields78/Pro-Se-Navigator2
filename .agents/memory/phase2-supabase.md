@@ -1,30 +1,33 @@
 ---
 name: Phase 2 Supabase backend
-description: Supabase integration details for Pro Se Navigator — auth, data layer, env vars, RLS, and Apple sign-in.
+description: Auth replaced with Supabase; CasesContext uses Supabase REST tables with RLS; legal corpus now lives in Supabase via session pooler.
 ---
 
-## Env var setup
-Replit secrets: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
-The dev script in `artifacts/pro-se-navigator/package.json` re-exports the first two with the `EXPO_PUBLIC_` prefix so Metro can bundle them client-side.
-Service role key is NEVER used in client code.
+## Auth
+- Supabase auth (supabase-js) replaces the original mock auth.
+- Env vars: SUPABASE_URL (REST endpoint), SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY.
+- Expo vars: EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY.
 
-## Client
-`lib/supabase.ts` — `createClient` with `ExpoSecureStoreAdapter` (iOS Keychain / Android Keystore). `AppState` listener in AuthContext triggers `startAutoRefresh` / `stopAutoRefresh`.
+## User-data tables (Supabase, migration 001)
+- `cases`, `messages`, `deadlines`, `verified_authorities`, `artifacts`
+- RLS: per-user via `auth.uid()`.
 
-## Tables
-`cases`, `messages`, `deadlines`, `verified_authorities`, `artifacts` — all in `supabase/migrations/001_initial.sql`. Every child table has `user_id uuid` (denormalized) plus a FK to `cases` with `ON DELETE CASCADE`. Column names are snake_case; `contexts/CasesContext.tsx` has explicit mapper functions (`dbToCase`, `caseToDb`, etc.).
+## Legal corpus tables (Supabase, migrations 002 + 003)
+- `legal_sources`, `legal_chunks` (with generated FTS tsvector + GIN index)
+- Applied via psql session pooler in Phase 5a.
+- Row counts after seed: 15 sources, 20 chunks.
+- RLS: authenticated read; service-role-only write.
 
-## RLS
-Child table policies double-check case ownership via an `EXISTS` subquery into `cases`, not just `user_id = auth.uid()`. This prevents cross-tenant FK linkage even if an attacker guesses a case ID.
+## Connectivity (critical)
+- Direct Postgres host (`db.<project-id>.supabase.co:5432`) → ENOTFOUND from Replit. Do NOT use.
+- Session pooler (`aws-1-us-west-2.pooler.supabase.com:5432`) → reachable from Replit. Use SUPABASE_POOLER_URL.
+- SUPABASE_DB_PASSWORD holds the direct URL (unusable for TCP); kept as last-resort fallback only.
+- psql requires `PGSSLMODE=require` when using the pooler URL.
 
-## createCase data integrity
-`createCase` inserts the case first, then the opening message — both awaited. On message insert failure it deletes the case (orphan cleanup) and throws.
+## db.ts connection priority (api-server)
+1. SUPABASE_POOLER_URL (session pooler, IPv4-compatible) ← preferred
+2. DATABASE_URL (Replit helium, local dev only)
+3. SUPABASE_DB_PASSWORD (direct host, not reachable)
 
-## sendMessage data integrity
-`sendMessage` does an optimistic state update, then awaits both a message insert and a case update in parallel via `Promise.all`. On any failure it rolls back to pre-send state and rethrows. `CaseChat.tsx` catches these and shows an `Alert`.
-
-## Apple sign-in
-`signInWithApple()` returns `boolean` — `true` = signed in, `false` = user canceled. Nonce uses `expo-crypto.getRandomBytesAsync(32)` (CSPRNG). Requires Apple configured as an OAuth provider in the Supabase dashboard (see SQL migration file for link).
-
-**Why:** Must not signal success on user cancel (haptic) — distinguish cancel from error.
-**How to apply:** Any future call sites must check the boolean return before firing success UX.
+## Apple auth note
+- Apple Sign-In requires a registered App ID; not yet wired up.
