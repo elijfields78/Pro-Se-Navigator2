@@ -142,13 +142,24 @@ export async function draftDocument(params: {
   return (await resp.json()) as DraftAnswer;
 }
 
-export type VerificationStatus = 'verified' | 'ambiguous' | 'not_found' | 'error';
+export type VerificationStatus =
+  | 'verified' // CourtListener confirmed (primary authority)
+  | 'corroborated' // confirmed by an independent web source instead
+  | 'ambiguous' // real case, multiple matching records
+  | 'unverified' // neither source could confirm — flag, don't trust or hide
+  | 'error';
 
 export interface CitationVerification {
   citation: string;
   status: VerificationStatus;
   caseName?: string;
-  url?: string;
+  /** CourtListener opinion URL (primary source). */
+  primaryUrl?: string;
+  /** Independent web source URL (secondary). */
+  secondaryUrl?: string;
+  /** Which sources confirmed this, e.g. ['CourtListener'], ['Perplexity']. */
+  verifiedBy?: string[];
+  note?: string;
 }
 
 /** Verification gate — checks case-law citations in text against CourtListener. */

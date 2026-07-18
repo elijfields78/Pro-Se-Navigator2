@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { isAiConfigured, generateNavigatorResponse, generateDraft } from "../lib/ai";
 import { isResearchConfigured, researchWithPerplexity } from "../lib/perplexity";
-import { isVerificationConfigured, verifyCitationsInText } from "../lib/courtlistener";
+import { isAnyVerifierConfigured, verifyCitations } from "../lib/verification";
 import { rateLimit } from "../middlewares/rateLimit";
 import { requireAuth } from "../middlewares/auth";
 
@@ -122,15 +122,16 @@ router.post("/ai/verify", aiRateLimit, aiAuth, async (req, res) => {
     });
   }
 
-  if (!isVerificationConfigured()) {
+  if (!isAnyVerifierConfigured()) {
     return res.status(503).json({
       error: "verification_unavailable",
-      message: "Citation verification is not configured yet (COURTLISTENER_API_TOKEN missing).",
+      message:
+        "Citation verification is not configured yet (needs COURTLISTENER_API_TOKEN and/or PERPLEXITY_API_KEY).",
     });
   }
 
   try {
-    const results = await verifyCitationsInText(parsed.data.text);
+    const results = await verifyCitations(parsed.data.text);
     return res.json({ results, count: results.length });
   } catch (err) {
     req.log.error({ err }, "citation verification failed");

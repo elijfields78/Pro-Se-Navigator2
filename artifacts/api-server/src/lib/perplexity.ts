@@ -88,3 +88,79 @@ export async function researchWithPerplexity(params: {
 
   return { text, citations, model };
 }
+
+const CONFIRM_SYSTEM_PROMPT = `You verify whether a legal citation refers to a REAL, published court decision. Search authoritative legal sources (official court websites, Google Scholar, Justia, CourtListener, official reporters).
+
+Respond in EXACTLY this format:
+Line 1: CONFIRMED or NOT CONFIRMED
+Line 2: one sentence — if confirmed, give the case name and court; if not, say you could not find it.
+
+Only say CONFIRMED if you actually found an authoritative source for this specific citation. Do not guess. If you are unsure or cannot find a source, say NOT CONFIRMED.`;
+
+export interface CitationConfirmation {
+  confirmed: boolean;
+  sourceUrl?: string;
+  note: string;
+}
+
+/**
+ * Independent second-source check: ask Perplexity (live web) whether a specific
+ * citation refers to a real case. Requires both an affirmative CONFIRMED and at
+ * least one real source URL — so a bare LLM assertion without a source does NOT
+ * count as confirmation.
+ */
+export async function confirmCitationWithPerplexity(params: {
+  citation: string;
+  caseName?: string;
+}): Promise<CitationConfirmation> {
+  const apiKey = process.env.PERPLEXITY_API_KEY;
+  if (!apiKey) {
+    throw new Error("PERPLEXITY_API_KEY is not set; secondary verification is disabled.");
+  }
+
+  const query = params.caseName
+    ? `Citation: ${params.citation}. Reported case name: ${params.caseName}.`
+    : `Citation: ${params.citation}.`;
+
+  const resp = await fetch(PERPLEXITY_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: researchModel(),
+      messages: [
+        { role: "system", content: CONFIRM_SYSTEM_PROMPT },
+        { role: "user", content: query },
+      ],
+    }),
+  });
+
+  if (!resp.ok) {
+    const detail = await resp.text().catch(() => "");
+    throw new Error(`Perplexity confirm failed (${resp.status}): ${detail.slice(0, 200)}`);
+  }
+
+  const data = (await resp.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+    citations?: string[];
+    search_results?: Array<{ url?: string }>;
+  };
+
+  const text = (data.choices?.[0]?.message?.content ?? "").trim();
+  const affirmed = /^\s*CONFIRMED\b/i.test(text);
+
+  let sourceUrl: string | undefined;
+  if (Array.isArray(data.search_results) && data.search_results[0]?.url) {
+    sourceUrl = data.search_results[0].url;
+  } else if (Array.isArray(data.citations) && typeof data.citations[0] === "string") {
+    sourceUrl = data.citations[0];
+  }
+
+  // Confirmation requires BOTH an affirmative answer and a real source URL.
+  const confirmed = affirmed && Boolean(sourceUrl);
+  const note = text.split("\n").slice(1).join(" ").trim() || text;
+
+  return { confirmed, sourceUrl, note };
+}
