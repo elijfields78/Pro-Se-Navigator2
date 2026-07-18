@@ -140,14 +140,14 @@ export default function CaseDetailScreen() {
         ]}
       >
         <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={10}>
-          <Feather name="arrow-left" size={20} color={colors.text} />
+          <Feather name="chevron-left" size={26} color={colors.primary} />
         </Pressable>
 
         <View style={styles.titleArea}>
           <Text style={[styles.caseTitle, { color: colors.text }]} numberOfLines={1}>
-            {caseItem.title}
+            {caseItem.title || 'Untitled case'}
           </Text>
-          <Text style={[styles.caseType, { color: colors.textMuted }]}>
+          <Text style={[styles.caseType, { color: colors.primary }]}>
             {CASE_TYPE_LABELS[caseItem.caseType]}
             {caseItem.court ? ` · ${caseItem.court}` : ''}
           </Text>
@@ -428,10 +428,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     gap: 10,
   },
-  backBtn: { padding: 4 },
-  titleArea: { flex: 1, alignItems: 'center' },
-  caseTitle: { fontSize: 16, fontFamily: 'Inter_600SemiBold', textAlign: 'center', letterSpacing: -0.2 },
-  caseType: { fontSize: 11, fontFamily: 'Inter_400Regular', textAlign: 'center', marginTop: 2 },
+  backBtn: { padding: 2 },
+  titleArea: { flex: 1, alignItems: 'flex-start' },
+  caseTitle: { fontSize: 22, fontFamily: 'DMSans_700Bold', letterSpacing: -0.4 },
+  caseType: {
+    fontSize: 12,
+    fontFamily: 'DMSans_500Medium',
+    marginTop: 2,
+    letterSpacing: 0.3,
+  },
   moreBtn: { padding: 4 },
 
   // Segmented control

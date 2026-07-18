@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,10 @@ import {
   StyleSheet,
   Pressable,
   ActivityIndicator,
+  Animated,
+  Easing,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useColors } from '@/hooks/useColors';
 import { useCases } from '@/contexts/CasesContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,12 +19,50 @@ import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 
+function greetingForNow(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 18) return 'Good afternoon';
+  return 'Good evening';
+}
+
+function deadlineLabel(dueDate: string): string {
+  const d = new Date(dueDate + 'T00:00:00');
+  if (isNaN(d.getTime())) return 'Deadline set';
+  return `Due ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+}
+
+/** Slowly rotating compass for the empty state (one turn every 6s). */
+function RotatingCompass({ color }: { color: string }) {
+  const turn = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(turn, {
+        toValue: 1,
+        duration: 6000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [turn]);
+
+  const rotate = turn.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  return (
+    <Animated.View style={{ transform: [{ rotate }] }}>
+      <Feather name="compass" size={44} color={color} />
+    </Animated.View>
+  );
+}
+
 export default function CasesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { cases, messages, isLoading, setActiveCase, deleteCase } = useCases();
+  const { cases, messages, deadlines, isLoading, setActiveCase, deleteCase } = useCases();
   const { user } = useAuth();
 
+  const firstName = user?.name?.split(' ')[0];
   const initials = user?.name
     ? user.name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
     : (user?.email?.[0] ?? '?').toUpperCase();
@@ -36,6 +77,15 @@ export default function CasesScreen() {
     router.push('/case/new');
   };
 
+  /** Earliest upcoming deadline for a case, if any. */
+  const nextDeadlineFor = (caseId: string): string | undefined => {
+    const today = new Date().toISOString().slice(0, 10);
+    const upcoming = deadlines
+      .filter((d) => d.caseId === caseId && d.dueDate >= today)
+      .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+    return upcoming[0] ? deadlineLabel(upcoming[0].dueDate) : undefined;
+  };
+
   if (isLoading) {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
@@ -46,40 +96,55 @@ export default function CasesScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <View
-        style={[
-          styles.header,
-          { paddingTop: insets.top + 16, borderBottomColor: colors.border },
-        ]}
+      {/* ── Gradient header ── */}
+      <LinearGradient
+        colors={[colors.surface2, 'transparent']}
+        style={[styles.headerGradient, { paddingTop: insets.top + 12 }]}
       >
-        <Pressable
-          onPress={() => router.push('/settings')}
-          style={[styles.avatarBtn, { backgroundColor: colors.verifiedBg }]}
-          hitSlop={6}
-        >
-          <Text style={[styles.avatarText, { color: colors.primary }]}>{initials}</Text>
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Cases</Text>
-        <Pressable
-          onPress={handleNew}
-          style={[styles.newBtn, { backgroundColor: colors.amber }]}
-          hitSlop={6}
-        >
-          <Feather name="plus" size={18} color={colors.amberText} />
-        </Pressable>
-      </View>
+        <View style={styles.headerRow}>
+          <View style={styles.headerTextBlock}>
+            <Text style={[styles.greeting, { color: colors.textSecondary }]}>
+              {greetingForNow()}
+              {firstName ? `, ${firstName}` : ''}
+            </Text>
+            <Text style={[styles.headerTitle, { color: colors.text }]}>Your Cases</Text>
+          </View>
+
+          <View style={styles.headerActions}>
+            <Pressable
+              onPress={handleNew}
+              style={({ pressed }) => [
+                styles.newBtn,
+                { backgroundColor: colors.amber },
+                pressed && { opacity: 0.85 },
+              ]}
+              hitSlop={6}
+            >
+              <Feather name="plus" size={14} color={colors.amberText} />
+              <Text style={[styles.newBtnLabel, { color: colors.amberText }]}>New case</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => router.push('/settings')}
+              style={[
+                styles.avatarBtn,
+                { backgroundColor: colors.primaryDim, borderColor: colors.primaryGlow },
+              ]}
+              hitSlop={6}
+            >
+              <Text style={[styles.avatarText, { color: colors.primary }]}>{initials}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </LinearGradient>
 
       {cases.length === 0 ? (
         <View style={styles.empty}>
-          <View style={[styles.emptyIcon, { backgroundColor: colors.verifiedBg }]}>
-            <Feather name="compass" size={34} color={colors.primary} />
-          </View>
+          <RotatingCompass color={colors.primary} />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            Start your first case
+            Your legal journey begins here
           </Text>
           <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
-            The Navigator guides you through intake and helps organize your legal matter step by step.
+            The Navigator guides you through intake and{'\n'}organizes your matter step by step.
           </Text>
           <Pressable
             onPress={handleNew}
@@ -89,7 +154,7 @@ export default function CasesScreen() {
               pressed && { opacity: 0.8 },
             ]}
           >
-            <Text style={[styles.emptyBtnText, { color: colors.amberText }]}>New case</Text>
+            <Text style={[styles.emptyBtnText, { color: colors.amberText }]}>Start a new case</Text>
           </Pressable>
           <Text style={[styles.disclaimer, { color: colors.textMuted }]}>
             This is not legal advice. Pro Se Navigator is not a law firm.
@@ -104,22 +169,22 @@ export default function CasesScreen() {
               {'Active · ' + cases.length}
             </Text>
           }
-          renderItem={({ item }) => {
+          renderItem={({ item, index }) => {
             const msgs = messages[item.id] || [];
             const last = msgs[msgs.length - 1];
             return (
               <CaseCard
                 caseItem={item}
+                index={index}
                 lastMessage={last?.content}
+                messageCount={msgs.length}
+                nextDeadline={nextDeadlineFor(item.id)}
                 onPress={() => handlePress(item.id)}
                 onDelete={() => deleteCase(item.id)}
               />
             );
           }}
-          contentContainerStyle={[
-            styles.list,
-            { paddingBottom: insets.bottom + 96 },
-          ]}
+          contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 96 }]}
           showsVerticalScrollIndicator={false}
           ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
         />
@@ -131,18 +196,49 @@ export default function CasesScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  headerGradient: {
+    minHeight: 120,
     paddingHorizontal: 20,
-    paddingBottom: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingBottom: 16,
+    justifyContent: 'flex-end',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  headerTextBlock: { gap: 2 },
+  greeting: {
+    fontSize: 15,
+    fontFamily: 'DMSans_400Regular',
   },
   headerTitle: {
-    fontSize: 30,
-    fontFamily: 'Inter_600SemiBold',
-    letterSpacing: -0.7,
+    fontSize: 28,
+    fontFamily: 'DMSans_700Bold',
+    letterSpacing: -0.5,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  newBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    height: 36,
+    shadowColor: '#E8A33D',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  newBtnLabel: {
+    fontSize: 13,
+    fontFamily: 'DMSans_500Medium',
   },
   avatarBtn: {
     width: 38,
@@ -150,24 +246,11 @@ const styles = StyleSheet.create({
     borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: '#0F6E5625',
+    borderWidth: 2,
   },
   avatarText: {
     fontSize: 13,
-    fontFamily: 'Inter_600SemiBold',
-  },
-  newBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#E8A33D',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 3,
+    fontFamily: 'DMSans_600SemiBold',
   },
   list: {
     paddingHorizontal: 20,
@@ -175,54 +258,48 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     fontSize: 11,
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'DMSans_600SemiBold',
     letterSpacing: 1,
     textTransform: 'uppercase',
     paddingBottom: 10,
-    paddingTop: 14,
+    paddingTop: 8,
   },
   empty: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 36,
+    paddingHorizontal: 32,
     gap: 12,
   },
-  emptyIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
   emptyTitle: {
-    fontSize: 20,
-    fontFamily: 'Inter_600SemiBold',
+    fontSize: 21,
+    fontFamily: 'DMSans_600SemiBold',
     textAlign: 'center',
     letterSpacing: -0.2,
+    marginTop: 10,
   },
   emptySub: {
     fontSize: 14,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'DMSans_400Regular',
     textAlign: 'center',
     lineHeight: 21,
   },
   emptyBtn: {
-    paddingHorizontal: 28,
-    paddingVertical: 14,
-    borderRadius: 12,
-    marginTop: 8,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    paddingVertical: 15,
+    borderRadius: 26,
+    marginTop: 10,
   },
   emptyBtnText: {
     fontSize: 16,
-    fontFamily: 'Inter_500Medium',
+    fontFamily: 'DMSans_500Medium',
   },
   disclaimer: {
     fontSize: 11,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'DMSans_400Regular',
     textAlign: 'center',
     lineHeight: 17,
-    marginTop: 20,
+    marginTop: 18,
   },
 });

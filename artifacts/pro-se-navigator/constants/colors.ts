@@ -1,6 +1,9 @@
 /**
  * Pro Se Navigator — design tokens
- * Calm, whitespace-first, warmer palette. Light theme only for v1.
+ *
+ * "Counsel Dark" art direction: deep atmospheric dark mode, electro-jade
+ * primary, amber CTAs. The light palette is kept exactly as-is for a future
+ * theme toggle; the app currently renders dark everywhere (see useColors).
  */
 
 const colors = {
@@ -8,6 +11,8 @@ const colors = {
     // Surfaces
     background: '#FAF9F5',
     surface: '#FFFFFF',
+    surface2: '#F5F4F0',
+    surfaceOffset: '#EFEEE9',
 
     // Text
     text: '#1C1B18',
@@ -16,14 +21,18 @@ const colors = {
 
     // Borders
     border: '#EAE8E1',
+    borderStrong: '#DBD9D0',
 
     // Brand
     primary: '#0F6E56',
     primaryGuide: '#1D9E75',
+    primaryGlow: 'rgba(15,110,86,0.14)',
+    primaryDim: 'rgba(15,110,86,0.07)',
 
     // CTA
     amber: '#E8A33D',
     amberText: '#412402',
+    amberGlow: 'rgba(232,163,61,0.25)',
 
     // Semantic states
     verifiedBg: '#E1F5EE',
@@ -49,7 +58,58 @@ const colors = {
     secondaryForeground: '#1C1B18',
   },
 
-  radius: 12,
+  dark: {
+    // Surfaces
+    background: '#0E1117',
+    surface: '#161B25',
+    surface2: '#1E2537',
+    surfaceOffset: '#252D3D',
+
+    // Text
+    text: '#E8EBF0',
+    textSecondary: '#8892A4',
+    textMuted: '#4D5568',
+
+    // Borders
+    border: 'rgba(255,255,255,0.08)',
+    borderStrong: 'rgba(255,255,255,0.14)',
+
+    // Brand — electro-jade
+    primary: '#00D4A0',
+    primaryGuide: '#33E0B5',
+    primaryGlow: 'rgba(0,212,160,0.18)',
+    primaryDim: 'rgba(0,212,160,0.08)',
+
+    // CTA
+    amber: '#E8A33D',
+    amberText: '#1A0D00',
+    amberGlow: 'rgba(232,163,61,0.25)',
+
+    // Semantic states
+    verifiedBg: 'rgba(0,212,160,0.10)',
+    verifiedText: '#00D4A0',
+    deadlineBg: 'rgba(232,163,61,0.12)',
+    deadlineText: '#F0B55A',
+
+    // Legacy aliases for scaffold compatibility
+    tint: '#00D4A0',
+    foreground: '#E8EBF0',
+    card: '#161B25',
+    cardForeground: '#E8EBF0',
+    muted: '#1E2537',
+    mutedForeground: '#8892A4',
+    accent: 'rgba(0,212,160,0.10)',
+    accentForeground: '#00D4A0',
+    destructive: '#FF5252',
+    destructiveForeground: '#FFFFFF',
+    input: '#252D3D',
+    primary2: '#00D4A0',
+    primaryForeground: '#001A13',
+    secondary: '#1E2537',
+    secondaryForeground: '#E8EBF0',
+  },
+
+  radius: 14,
 };
 
 export default colors;

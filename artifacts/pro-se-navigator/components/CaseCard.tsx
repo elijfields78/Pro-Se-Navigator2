@@ -1,5 +1,5 @@
-import React from 'react';
-import { Pressable, View, Text, StyleSheet, Alert } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { Pressable, View, Text, StyleSheet, Alert, Animated, Easing } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
 import { Case, CaseType } from '@/contexts/types';
@@ -12,12 +12,12 @@ export const CASE_TYPE_LABELS: Record<CaseType, string> = {
   ifp: 'Fee Waiver',
 };
 
-// Type-specific badge colors — light-only (v1 is light-only)
-const TYPE_BADGE: Record<CaseType, { bg: string; text: string }> = {
-  fcra:    { bg: '#E1F5EE', text: '#0F6E56' },
-  general: { bg: '#EFEFEB', text: '#6B6A63' },
-  traffic: { bg: '#FFF4E5', text: '#92500A' },
-  ifp:     { bg: '#F0F4FF', text: '#3B5BDB' },
+// Counsel Dark: type is communicated with a jade icon, not a pastel badge.
+const TYPE_ICON: Record<CaseType, keyof typeof Feather.glyphMap> = {
+  general: 'briefcase',
+  fcra: 'credit-card',
+  traffic: 'truck',
+  ifp: 'file-text',
 };
 
 function timeAgo(dateStr: string): string {
@@ -37,11 +37,45 @@ interface CaseCardProps {
   lastMessage?: string;
   onPress: () => void;
   onDelete: () => void;
+  /** Position in the list — drives the staggered entrance (80ms per card). */
+  index?: number;
+  /** Number of messages in this case, shown in the bottom row. */
+  messageCount?: number;
+  /** Next upcoming deadline label (e.g. "Due Aug 4"), shown as an amber pill. */
+  nextDeadline?: string;
 }
 
-export default function CaseCard({ caseItem, lastMessage, onPress, onDelete }: CaseCardProps) {
+export default function CaseCard({
+  caseItem,
+  lastMessage,
+  onPress,
+  onDelete,
+  index = 0,
+  messageCount,
+  nextDeadline,
+}: CaseCardProps) {
   const colors = useColors();
-  const badge = TYPE_BADGE[caseItem.caseType];
+
+  // Entrance: translateY 20→0 + opacity 0→1, staggered 80ms per card.
+  const translate = useRef(new Animated.Value(20)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(translate, {
+        toValue: 0,
+        duration: 320,
+        delay: index * 80,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 320,
+        delay: index * 80,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [translate, opacity, index]);
 
   const handleLongPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -56,123 +90,171 @@ export default function CaseCard({ caseItem, lastMessage, onPress, onDelete }: C
   };
 
   return (
-    <Pressable
-      onPress={() => {
-        Haptics.selectionAsync();
-        onPress();
-      }}
-      onLongPress={handleLongPress}
-      delayLongPress={400}
-      style={({ pressed }) => [
-        styles.card,
-        { backgroundColor: colors.surface, borderColor: colors.border },
-        pressed && styles.pressed,
-      ]}
-    >
-      {/* Title + time */}
-      <View style={styles.top}>
-        <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
-          {caseItem.title}
-        </Text>
-        <Text style={[styles.time, { color: colors.textMuted }]}>
-          {timeAgo(caseItem.lastMessageAt || caseItem.createdAt)}
-        </Text>
-      </View>
+    <Animated.View style={{ opacity, transform: [{ translateY: translate }] }}>
+      <Pressable
+        onPress={() => {
+          Haptics.selectionAsync();
+          onPress();
+        }}
+        onLongPress={handleLongPress}
+        delayLongPress={400}
+        style={({ pressed }) => [
+          styles.card,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+          pressed && styles.pressed,
+        ]}
+      >
+        {/* Jade status bar — indicates an active case */}
+        <View style={[styles.accentBar, { backgroundColor: colors.primary }]} />
 
-      {/* Badge row */}
-      <View style={styles.meta}>
-        <View style={[styles.badge, { backgroundColor: badge.bg }]}>
-          <Text style={[styles.badgeText, { color: badge.text }]}>
-            {CASE_TYPE_LABELS[caseItem.caseType]}
-          </Text>
+        <View style={styles.body}>
+          {/* Title row */}
+          <View style={styles.top}>
+            <Feather
+              name={TYPE_ICON[caseItem.caseType]}
+              size={15}
+              color={colors.primary}
+              style={styles.typeIcon}
+            />
+            <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
+              {caseItem.title || 'Untitled case'}
+            </Text>
+            <Text style={[styles.time, { color: colors.textMuted }]}>
+              {timeAgo(caseItem.lastMessageAt || caseItem.createdAt)}
+            </Text>
+          </View>
+
+          {/* Type + court */}
+          <View style={styles.meta}>
+            <Text style={[styles.typeLabel, { color: colors.textSecondary }]}>
+              {CASE_TYPE_LABELS[caseItem.caseType]}
+            </Text>
+            {caseItem.court ? (
+              <Text style={[styles.court, { color: colors.textMuted }]} numberOfLines={1}>
+                · {caseItem.court}
+              </Text>
+            ) : null}
+          </View>
+
+          {/* Last message preview */}
+          {lastMessage ? (
+            <Text style={[styles.preview, { color: colors.textSecondary }]} numberOfLines={2}>
+              {lastMessage}
+            </Text>
+          ) : null}
+
+          {/* Bottom row: deadline pill + message count */}
+          {(nextDeadline || messageCount != null) && (
+            <View style={styles.bottomRow}>
+              {nextDeadline ? (
+                <View style={[styles.deadlinePill, { backgroundColor: colors.deadlineBg }]}>
+                  <Feather name="clock" size={10} color={colors.deadlineText} />
+                  <Text style={[styles.deadlineText, { color: colors.deadlineText }]}>
+                    {nextDeadline}
+                  </Text>
+                </View>
+              ) : null}
+              {messageCount != null ? (
+                <Text style={[styles.msgCount, { color: colors.textMuted }]}>
+                  {messageCount} message{messageCount !== 1 ? 's' : ''}
+                </Text>
+              ) : null}
+            </View>
+          )}
         </View>
-        {caseItem.court ? (
-          <Text style={[styles.court, { color: colors.textSecondary }]} numberOfLines={1}>
-            {caseItem.court}
-          </Text>
-        ) : null}
-      </View>
 
-      {/* Message preview */}
-      {lastMessage ? (
-        <Text style={[styles.preview, { color: colors.textMuted }]} numberOfLines={2}>
-          {lastMessage}
-        </Text>
-      ) : null}
-
-      {/* Chevron */}
-      <View style={styles.chevron}>
-        <Feather name="chevron-right" size={16} color={colors.primary + '55'} />
-      </View>
-    </Pressable>
+        {/* Chevron */}
+        <View style={styles.chevron}>
+          <Feather name="chevron-right" size={16} color={colors.primary + '66'} />
+        </View>
+      </Pressable>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16,
-    padding: 18,
+    flexDirection: 'row',
+    borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
-    gap: 9,
+    overflow: 'hidden',
     position: 'relative',
-    // Warm barely-there elevation
-    shadowColor: '#1C1B18',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 8,
-    elevation: 2,
   },
   pressed: {
     opacity: 0.88,
     transform: [{ scale: 0.985 }],
   },
+  accentBar: {
+    width: 3,
+  },
+  body: {
+    flex: 1,
+    padding: 16,
+    gap: 8,
+  },
   top: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingRight: 22,
+    gap: 8,
   },
+  typeIcon: { flexShrink: 0 },
   title: {
     flex: 1,
     fontSize: 16,
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'DMSans_600SemiBold',
     letterSpacing: -0.2,
     lineHeight: 22,
-    marginRight: 8,
   },
   time: {
     fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-    marginTop: 2,
+    fontFamily: 'DMSans_400Regular',
   },
   meta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontFamily: 'Inter_600SemiBold',
-    letterSpacing: 0.1,
+  typeLabel: {
+    fontSize: 12,
+    fontFamily: 'DMSans_500Medium',
+    letterSpacing: 0.2,
   },
   court: {
     flex: 1,
     fontSize: 12,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'DMSans_400Regular',
   },
   preview: {
     fontSize: 13,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'DMSans_400Regular',
     lineHeight: 19,
+  },
+  bottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 2,
+  },
+  deadlinePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  deadlineText: {
+    fontSize: 11,
+    fontFamily: 'DMSans_500Medium',
+  },
+  msgCount: {
+    fontSize: 11,
+    fontFamily: 'DMSans_400Regular',
   },
   chevron: {
     position: 'absolute',
-    right: 16,
+    right: 12,
     top: 0,
     bottom: 0,
     justifyContent: 'center',
