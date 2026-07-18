@@ -14,6 +14,7 @@ import {
 import { Feather } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useColors } from '@/hooks/useColors';
+import { useColorScheme } from '@/hooks/useColorScheme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import AttachmentSheet, { PendingAttachment } from './AttachmentSheet';
@@ -67,6 +68,7 @@ export default function ChatInput({
   disabled,
 }: ChatInputProps) {
   const colors = useColors();
+  const scheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const [text, setText] = useState('');
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -199,7 +201,7 @@ export default function ChatInput({
             ]}
           />
           <View style={[styles.rowClip, { borderColor: colors.borderStrong }]}>
-            <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
+            <BlurView intensity={40} tint={scheme} style={StyleSheet.absoluteFill} />
             {/* Blur fallback tint (Android renders BlurView weakly) */}
             <View
               style={[StyleSheet.absoluteFill, { backgroundColor: colors.surface2, opacity: Platform.OS === 'android' ? 1 : 0.6 }]}

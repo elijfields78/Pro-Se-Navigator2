@@ -12,6 +12,7 @@ import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme, ThemePreference } from '@/contexts/ThemeContext';
 import { usePlan } from '@/hooks/usePlan';
 import * as Haptics from 'expo-haptics';
 
@@ -31,6 +32,7 @@ export default function SettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user, signOut } = useAuth();
+  const { preference, setPreference } = useTheme();
   const plan = usePlan();
 
   const initials = user?.name
@@ -96,6 +98,14 @@ export default function SettingsScreen() {
             </Text>
           </View>
         </View>
+
+        {/* ── Appearance section ── */}
+        <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>APPEARANCE</Text>
+        <ThemeSelector
+          preference={preference}
+          onChange={setPreference}
+          colors={colors}
+        />
 
         {/* ── Content section ── */}
         <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>CONTENT</Text>
@@ -166,6 +176,67 @@ export default function SettingsScreen() {
 function Divider({ colors }: { colors: ReturnType<typeof useColors> }) {
   return (
     <View style={[styles.divider, { backgroundColor: colors.border }]} />
+  );
+}
+
+const THEME_OPTIONS: {
+  value: ThemePreference;
+  label: string;
+  icon: keyof typeof Feather.glyphMap;
+}[] = [
+  { value: 'light', label: 'Light', icon: 'sun' },
+  { value: 'dark', label: 'Dark', icon: 'moon' },
+  { value: 'system', label: 'System', icon: 'smartphone' },
+];
+
+/** Segmented Light / Dark / System control. */
+function ThemeSelector({
+  preference,
+  onChange,
+  colors,
+}: {
+  preference: ThemePreference;
+  onChange: (pref: ThemePreference) => void;
+  colors: ReturnType<typeof useColors>;
+}) {
+  return (
+    <View
+      style={[
+        styles.segmented,
+        { backgroundColor: colors.surface, borderColor: colors.border },
+      ]}
+    >
+      {THEME_OPTIONS.map((opt) => {
+        const active = preference === opt.value;
+        return (
+          <Pressable
+            key={opt.value}
+            onPress={() => {
+              Haptics.selectionAsync();
+              onChange(opt.value);
+            }}
+            style={[
+              styles.segment,
+              active && { backgroundColor: colors.primaryDim },
+            ]}
+          >
+            <Feather
+              name={opt.icon}
+              size={16}
+              color={active ? colors.primary : colors.textSecondary}
+            />
+            <Text
+              style={[
+                styles.segmentLabel,
+                { color: active ? colors.primary : colors.textSecondary },
+              ]}
+            >
+              {opt.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 
@@ -276,6 +347,28 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     marginLeft: 2,
     textTransform: 'uppercase',
+  },
+
+  // Theme segmented control
+  segmented: {
+    flexDirection: 'row',
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 4,
+    gap: 4,
+  },
+  segment: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  segmentLabel: {
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
   },
 
   // Menu card

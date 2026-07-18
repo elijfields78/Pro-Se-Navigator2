@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { Animated, Platform, StyleSheet, View } from 'react-native';
 import { useColors } from '@/hooks/useColors';
+import { useColorScheme } from '@/hooks/useColorScheme';
 import { Feather } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
@@ -70,6 +71,7 @@ function TabIcon({
 
 function ClassicTabLayout() {
   const colors = useColors();
+  const scheme = useColorScheme();
   const isWeb = Platform.OS === 'web';
 
   const icon =
@@ -100,7 +102,7 @@ function ClassicTabLayout() {
         },
         tabBarBackground: () => (
           <View style={StyleSheet.absoluteFill}>
-            <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
+            <BlurView intensity={60} tint={scheme} style={StyleSheet.absoluteFill} />
             {/* Fallback tint — BlurView is weak/absent on Android and web */}
             <View
               style={[
