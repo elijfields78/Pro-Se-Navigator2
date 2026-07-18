@@ -70,3 +70,46 @@ Running record of architectural decisions. Newest entries at the bottom.
 - Tests: 8 passing (extraction incl. trailing-period bug fix, CourtListener
   row mapping, verdict parsing, orchestrator merge/corroboration/honest
   failure, gate semantics, report assembly).
+
+## 2026-07-18 — Full build-out (owner-directed: "execute everything now")
+
+- **Layer 3 (memory):** `lib/memory` — MemoryStore interface with an
+  in-memory implementation (tests/E2E) and a Supabase implementation over
+  the nav_* tables. Caption/signature mutable only through explicit setters;
+  every set is also recorded as a memory event.
+- **Meta-loop primitive:** `lib/metaloop` — async generator streaming step
+  states through Intake → Clarify → Verify → Outline → Draft → Pressure-Test
+  → Memory-Update. Clarify questions halt (`blocked_on_user`), verify
+  failure hard-stops, outline halts `awaiting_approval` with resume support
+  (completed outcomes carry over, nothing re-runs).
+- **Layer 4 (subagents):** `lib/subagents` — orchestrator with spawn /
+  wait / waitAll, parallel by default, per-job isolation; eight types with
+  per-type model routing (Haiku for memory/past_context, strongest model
+  elsewhere) and distilled-summary contracts. Runner injectable.
+- **Layer 5 (guardrails):** `lib/guardrails` — seven checks composed into
+  `runExportGate`. Blocking: caption lock, signature lock, verification
+  gate, banned vocabulary (counsel pejoratives + sovereign-citizen terms,
+  word-boundary matched). Advisory: tone filter (with mechanical fix),
+  factual consistency (assertion→evidence/docket refs). Automatic: deadline
+  safety margin — `computeSafetyDate` = 20% of the created→due interval,
+  minimum one full day for day-scale intervals.
+- **Layer 6 (workflows):** `lib/workflows` — generic gated `WorkflowMachine`
+  (advance refuses while gate artifacts are missing; fastForward for
+  already-covered phases). Cold-start machine: all nine phases with the §2
+  gates, including the §14.4 commitment gate before drafting and HOLD-blocks
+  in viability. `buildReactiveHandoff` enforces the §15 nothing-lost
+  handoff. Phase 1 Story Intake: silent extraction (zod-validated, resilient
+  to malformed model output), neutral narrative, and the five §3.2
+  gap-filler questions asked only when missing. Reactive: 14-module registry
+  + deterministic inbound-filing router with chip suggestions (per the
+  derived Blueprint — still subject to correction against the real v1.0).
+- **Layer 7 (chat surface):** `/app` — streaming chat with NAVIGATOR label,
+  phase chips, busy status, case sidebar, amber send; `/api/chat` streams
+  Anthropic responses (strongest available model) with a plain-English,
+  honesty-first system prompt.
+- **E2E (mechanics-only):** the Chase §16 pattern walks all nine phases —
+  every gate refuses early advancement, HOLD viability blocks, the
+  commitment gate blocks, the export gate blocks banned vocabulary and
+  unconfirmed citations then passes a clean verified draft, and the reactive
+  handoff carries narrative/evidence/theories/viability/court/docket.
+- 28 tests passing; typecheck and production build clean.
