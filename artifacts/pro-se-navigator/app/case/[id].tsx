@@ -208,7 +208,7 @@ export default function CaseDetailScreen() {
       </View>
 
       {/* ── Content ── */}
-      {activeView === 'chat' && <CaseChat caseId={id} messages={msgs} />}
+      {activeView === 'chat' && <CaseChat caseId={id} messages={msgs} autoFocusInput />}
       {activeView === 'artifacts' && (
         <ArtifactsView
           artifacts={caseArtifacts}

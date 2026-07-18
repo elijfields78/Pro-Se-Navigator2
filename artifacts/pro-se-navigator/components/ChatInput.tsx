@@ -23,6 +23,12 @@ interface ChatInputProps {
   onSend: (text: string, attachments?: PendingAttachment[]) => void;
   placeholder?: string;
   disabled?: boolean;
+  /** Auto-focus the field when mounted (full-screen case chat). */
+  autoFocus?: boolean;
+  /** When set, a dismissible quote bar renders above the input. */
+  quotedMessage?: string | null;
+  /** Dismiss the quote bar. */
+  onClearQuote?: () => void;
 }
 
 /** Mic waveform: three vertical bars looping while "recording". */
@@ -66,6 +72,9 @@ export default function ChatInput({
   onSend,
   placeholder = 'Ask the Navigator…',
   disabled,
+  autoFocus,
+  quotedMessage,
+  onClearQuote,
 }: ChatInputProps) {
   const colors = useColors();
   const scheme = useColorScheme();
@@ -187,6 +196,23 @@ export default function ChatInput({
           </ScrollView>
         )}
 
+        {/* Quote-reply bar */}
+        {quotedMessage ? (
+          <View
+            style={[
+              styles.quoteBar,
+              { backgroundColor: colors.primaryDim, borderLeftColor: colors.primary },
+            ]}
+          >
+            <Text numberOfLines={2} style={[styles.quoteText, { color: colors.textSecondary }]}>
+              {quotedMessage}
+            </Text>
+            <Pressable onPress={onClearQuote} hitSlop={8}>
+              <Feather name="x" size={14} color={colors.textMuted} />
+            </Pressable>
+          </View>
+        ) : null}
+
         {/* Floating bar + focus glow ring */}
         <View>
           <Animated.View
@@ -236,6 +262,7 @@ export default function ChatInput({
                 multiline
                 maxLength={2000}
                 editable={!disabled}
+                autoFocus={autoFocus}
                 returnKeyType="default"
                 onFocus={handleFocus}
                 onBlur={handleBlur}
@@ -332,6 +359,22 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  quoteBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderLeftWidth: 3,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
+  quoteText: {
+    flex: 1,
+    fontSize: 12,
+    fontFamily: 'DMSans_400Regular',
+    lineHeight: 17,
   },
   glowRing: {
     position: 'absolute',

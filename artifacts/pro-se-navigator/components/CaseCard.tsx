@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { Pressable, View, Text, StyleSheet, Alert, Animated, Easing } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { Swipeable } from 'react-native-gesture-handler';
 import { useColors } from '@/hooks/useColors';
 import { Case, CaseType } from '@/contexts/types';
 import * as Haptics from 'expo-haptics';
@@ -43,6 +44,10 @@ interface CaseCardProps {
   messageCount?: number;
   /** Next upcoming deadline label (e.g. "Due Aug 4"), shown as an amber pill. */
   nextDeadline?: string;
+  /** Whether this case is pinned (shows a jade bookmark, sorts to top). */
+  isPinned?: boolean;
+  /** Toggle pin — triggered by a right-swipe. */
+  onPin?: () => void;
 }
 
 export default function CaseCard({
@@ -53,8 +58,40 @@ export default function CaseCard({
   index = 0,
   messageCount,
   nextDeadline,
+  isPinned = false,
+  onPin,
 }: CaseCardProps) {
   const colors = useColors();
+  const swipeRef = useRef<Swipeable>(null);
+
+  // Left-swipe (content moves left) reveals a red delete action on the right.
+  const renderDeleteAction = () => (
+    <View style={[styles.action, styles.deleteAction, { backgroundColor: colors.destructive }]}>
+      <Feather name="trash-2" size={20} color="#fff" />
+      <Text style={styles.actionLabel}>Delete</Text>
+    </View>
+  );
+
+  // Right-swipe (content moves right) reveals a jade pin action on the left.
+  const renderPinAction = () => (
+    <View style={[styles.action, styles.pinAction, { backgroundColor: colors.primary }]}>
+      <Feather name={isPinned ? 'bookmark' : 'bookmark'} size={20} color={colors.primaryForeground} />
+      <Text style={[styles.actionLabel, { color: colors.primaryForeground }]}>
+        {isPinned ? 'Unpin' : 'Pin'}
+      </Text>
+    </View>
+  );
+
+  const handleSwipeOpen = (direction: 'left' | 'right') => {
+    // direction === 'right' → right actions opened (swiped left) → delete.
+    // direction === 'left'  → left actions opened (swiped right) → pin.
+    swipeRef.current?.close();
+    if (direction === 'right') {
+      onDelete();
+    } else if (onPin) {
+      onPin();
+    }
+  };
 
   // Entrance: translateY 20→0 + opacity 0→1, staggered 80ms per card.
   const translate = useRef(new Animated.Value(20)).current;
@@ -91,6 +128,16 @@ export default function CaseCard({
 
   return (
     <Animated.View style={{ opacity, transform: [{ translateY: translate }] }}>
+      <Swipeable
+        ref={swipeRef}
+        friction={2}
+        rightThreshold={40}
+        leftThreshold={40}
+        renderRightActions={renderDeleteAction}
+        renderLeftActions={onPin ? renderPinAction : undefined}
+        onSwipeableOpen={handleSwipeOpen}
+        containerStyle={styles.swipeContainer}
+      >
       <Pressable
         onPress={() => {
           Haptics.selectionAsync();
@@ -111,7 +158,7 @@ export default function CaseCard({
           {/* Title row */}
           <View style={styles.top}>
             <Feather
-              name={TYPE_ICON[caseItem.caseType]}
+              name={isPinned ? 'bookmark' : TYPE_ICON[caseItem.caseType]}
               size={15}
               color={colors.primary}
               style={styles.typeIcon}
@@ -168,11 +215,34 @@ export default function CaseCard({
           <Feather name="chevron-right" size={16} color={colors.primary + '66'} />
         </View>
       </Pressable>
+      </Swipeable>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
+  swipeContainer: {
+    borderRadius: 14,
+  },
+  action: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 88,
+    gap: 4,
+  },
+  deleteAction: {
+    borderTopRightRadius: 14,
+    borderBottomRightRadius: 14,
+  },
+  pinAction: {
+    borderTopLeftRadius: 14,
+    borderBottomLeftRadius: 14,
+  },
+  actionLabel: {
+    color: '#fff',
+    fontSize: 12,
+    fontFamily: 'DMSans_600SemiBold',
+  },
   card: {
     flexDirection: 'row',
     borderRadius: 14,

@@ -19,6 +19,17 @@ interface AIMessageProps {
    * because the user's next action is entering a date in DeadlineDateEntry.
    */
   isEstimate?: boolean;
+  /** ISO timestamp — revealed on tap. */
+  createdAt?: string;
+  /** Long-press opens the message action sheet. */
+  onLongPress?: () => void;
+}
+
+function formatTime(iso?: string): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
 // Messages that have already played their typewriter reveal this session.
@@ -148,10 +159,25 @@ export default function AIMessage({
   onNextStepPress,
   onRegenerate,
   isEstimate = false,
+  createdAt,
+  onLongPress,
 }: AIMessageProps) {
   const colors = useColors();
   const [copied, setCopied] = useState(false);
   const { shown, streaming } = useTypewriter(content);
+
+  // Tap toggles the timestamp; it fades in/out.
+  const [showTimestamp, setShowTimestamp] = useState(false);
+  const timestampAnim = useRef(new Animated.Value(0)).current;
+  const toggleTimestamp = useCallback(() => {
+    const next = !showTimestamp;
+    setShowTimestamp(next);
+    Animated.timing(timestampAnim, {
+      toValue: next ? 1 : 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [showTimestamp, timestampAnim]);
 
   // Label flicker-in: opacity 0→1 over 300ms with a slight stagger.
   const labelOpacity = useRef(new Animated.Value(0)).current;
@@ -215,12 +241,21 @@ export default function AIMessage({
       )}
 
       {/* ── Message text — typewriter reveal with blinking caret ── */}
-      <Text
-        style={[styles.text, { color: isEstimate ? colors.textSecondary : colors.text }]}
-      >
-        {shown}
-        {streaming && <Cursor color={colors.primary} />}
-      </Text>
+      <Pressable onPress={toggleTimestamp} onLongPress={onLongPress} delayLongPress={400}>
+        <Text
+          style={[styles.text, { color: isEstimate ? colors.textSecondary : colors.text }]}
+        >
+          {shown}
+          {streaming && <Cursor color={colors.primary} />}
+        </Text>
+        {showTimestamp && createdAt ? (
+          <Animated.View style={{ opacity: timestampAnim }}>
+            <Text style={[styles.timestamp, { color: colors.textMuted }]}>
+              {formatTime(createdAt)}
+            </Text>
+          </Animated.View>
+        ) : null}
+      </Pressable>
 
       {/* ── Next-step pills — appear once streaming completes ── */}
       {!streaming && nextSteps && nextSteps.length > 0 && (
@@ -314,6 +349,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: 'DMSans_400Regular',
     lineHeight: 26,
+  },
+  timestamp: {
+    fontSize: 11,
+    fontFamily: 'DMSans_400Regular',
+    marginTop: 6,
   },
   steps: {
     marginTop: 14,

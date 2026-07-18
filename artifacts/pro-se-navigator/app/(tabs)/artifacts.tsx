@@ -1,11 +1,12 @@
-import React from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import { useCases } from '@/contexts/CasesContext';
 import ArtifactCard from '@/components/ArtifactCard';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CaseArtifact } from '@/contexts/types';
+import * as Haptics from 'expo-haptics';
 
 function sortByDate(a: CaseArtifact, b: CaseArtifact) {
   return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
@@ -14,7 +15,18 @@ function sortByDate(a: CaseArtifact, b: CaseArtifact) {
 export default function ArtifactsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { artifacts, deleteArtifact, isLoading } = useCases();
+  const { artifacts, deleteArtifact, isLoading, refresh } = useCases();
+
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      await refresh();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refresh]);
 
   const sorted = [...artifacts].sort(sortByDate);
 
@@ -56,6 +68,14 @@ export default function ArtifactsScreen() {
         <FlatList
           data={sorted}
           keyExtractor={(item) => item.id}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+            />
+          }
           renderItem={({ item }) => (
             <ArtifactCard
               artifact={item}

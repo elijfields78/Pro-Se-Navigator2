@@ -163,6 +163,8 @@ interface CasesContextType {
   documents: CaseDocument[];
   activeCaseId: string | null;
   isLoading: boolean;
+  /** Re-runs the full data load for the current user (used by pull-to-refresh). */
+  refresh: () => Promise<void>;
   createCase: (data: CreateCaseInput) => Promise<Case>;
   deleteCase: (id: string) => Promise<void>;
   updateCaseTitle: (id: string, title: string) => Promise<void>;
@@ -216,7 +218,7 @@ export function CasesProvider({ children }: { children: ReactNode }) {
     loadAll(user.id);
   }, [user]);
 
-  const loadAll = async (uid: string) => {
+  const loadAll = useCallback(async (uid: string) => {
     setIsLoading(true);
     try {
       const [casesRes, messagesRes, deadlinesRes, sourcesRes, artifactsRes] = await Promise.all([
@@ -262,7 +264,14 @@ export function CasesProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.warn('[CasesContext] documents load skipped:', err);
     }
-  };
+  }, []);
+
+  // ── refresh (pull-to-refresh) ───────────────────────────────────────────────
+  // Re-runs the same full load used on mount. No-op when signed out.
+  const refresh = useCallback(async () => {
+    if (!user) return;
+    await loadAll(user.id);
+  }, [user, loadAll]);
 
   // ── createCase ────────────────────────────────────────────────────────────
   const createCase = useCallback(
@@ -944,6 +953,7 @@ export function CasesProvider({ children }: { children: ReactNode }) {
         documents,
         activeCaseId,
         isLoading,
+        refresh,
         createCase,
         deleteCase,
         updateCaseTitle,

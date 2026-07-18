@@ -5,12 +5,12 @@ import {
   FlatList,
   StyleSheet,
   Pressable,
-  Linking,
   ActivityIndicator,
   TextInput,
   Keyboard,
   Modal,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import { useCases } from '@/contexts/CasesContext';
@@ -25,13 +25,35 @@ import {
   LegalSearchResult,
 } from '@/lib/retrievalClient';
 import * as Haptics from 'expo-haptics';
+import * as WebBrowser from 'expo-web-browser';
 
 type SearchState = 'idle' | 'loading' | 'done' | 'error';
 
 export default function SourcesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { sources, cases, addSource, isLoading } = useCases();
+  const { sources, cases, addSource, isLoading, refresh } = useCases();
+
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      await refresh();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refresh]);
+
+  // Opens an authority URL in the in-app browser.
+  const openUrl = useCallback((url?: string) => {
+    if (!url) return;
+    Haptics.selectionAsync();
+    WebBrowser.openBrowserAsync(url).catch((err) => {
+      console.error('[Sources] open url failed:', err);
+      Alert.alert('Could not open', 'This link could not be opened.');
+    });
+  }, []);
 
   const [query, setQuery] = useState('');
   const [searchState, setSearchState] = useState<SearchState>('idle');
@@ -102,31 +124,42 @@ export default function SourcesScreen() {
     [savingResult, addSource],
   );
 
-  const renderSavedSource = ({ item }: { item: VerifiedAuthority }) => (
-    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      <View style={styles.cardTop}>
-        <Text style={[styles.citation, { color: colors.text }]}>{item.citation}</Text>
-        <VerifiedTag status={item.verifiedStatus} label={item.verifiedStatus} />
-      </View>
-      {item.quote ? (
-        <Text style={[styles.quote, { color: colors.textSecondary }]} numberOfLines={3}>
-          "{item.quote}"
-        </Text>
-      ) : null}
-      <View style={styles.cardBottom}>
-        <Text style={[styles.caseLabel, { color: colors.textMuted }]}>{item.caseTitle}</Text>
-        {item.url ? (
-          <Pressable onPress={() => item.url && Linking.openURL(item.url)} hitSlop={8} style={styles.urlBtn}>
-            <Feather name="external-link" size={14} color={colors.primary} />
-          </Pressable>
+  const renderSavedSource = ({ item }: { item: VerifiedAuthority }) => {
+    const hasUrl = !!item.url;
+    return (
+      <Pressable
+        onPress={hasUrl ? () => openUrl(item.url) : undefined}
+        disabled={!hasUrl}
+        style={({ pressed }) => [
+          styles.card,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+          pressed && hasUrl && { opacity: 0.9 },
+        ]}
+      >
+        <View style={styles.cardTop}>
+          <View style={styles.citationRow}>
+            <Text style={[styles.citation, { color: colors.text }]}>{item.citation}</Text>
+            {hasUrl ? (
+              <Feather name="external-link" size={13} color={colors.primary} />
+            ) : null}
+          </View>
+          <VerifiedTag status={item.verifiedStatus} label={item.verifiedStatus} />
+        </View>
+        {item.quote ? (
+          <Text style={[styles.quote, { color: colors.textSecondary }]} numberOfLines={3}>
+            "{item.quote}"
+          </Text>
         ) : null}
-      </View>
-    </View>
-  );
+        <View style={styles.cardBottom}>
+          <Text style={[styles.caseLabel, { color: colors.textMuted }]}>{item.caseTitle}</Text>
+        </View>
+      </Pressable>
+    );
+  };
 
   const renderLibraryResult = ({ item }: { item: LegalSearchResult }) => (
     <Pressable
-      onPress={() => { Haptics.selectionAsync(); Linking.openURL(item.url); }}
+      onPress={() => openUrl(item.url)}
       style={({ pressed }) => [
         styles.card,
         { backgroundColor: colors.surface, borderColor: colors.border },
@@ -263,6 +296,14 @@ export default function SourcesScreen() {
           data={sources}
           keyExtractor={(item) => item.id}
           renderItem={renderSavedSource}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+            />
+          }
           contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 96 }]}
           showsVerticalScrollIndicator={false}
           ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
@@ -369,8 +410,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 10,
   },
-  citation: {
+  citationRow: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  citation: {
+    flexShrink: 1,
     fontSize: 14,
     fontFamily: 'Inter_500Medium',
     lineHeight: 20,

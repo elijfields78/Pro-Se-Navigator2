@@ -1,5 +1,13 @@
-import React from 'react';
-import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  ActivityIndicator,
+  ScrollView,
+  Animated,
+} from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import { useCases } from '@/contexts/CasesContext';
 import CaseChat from '@/components/CaseChat';
@@ -7,6 +15,76 @@ import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CASE_TYPE_LABELS } from '@/components/CaseCard';
+import * as Haptics from 'expo-haptics';
+import { Case } from '@/contexts/types';
+
+/** Horizontal case-switcher chips. Slides down into view on mount. */
+function CaseSwitcher({
+  cases,
+  activeId,
+  onSelect,
+  colors,
+}: {
+  cases: Case[];
+  activeId: string;
+  onSelect: (id: string) => void;
+  colors: ReturnType<typeof useColors>;
+}) {
+  const slide = useRef(new Animated.Value(-40)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(slide, { toValue: 0, duration: 200, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+    ]).start();
+  }, [slide, opacity]);
+
+  return (
+    <Animated.View
+      style={[
+        styles.caseSwitcher,
+        { borderBottomColor: colors.border, opacity, transform: [{ translateY: slide }] },
+      ]}
+    >
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.caseSwitcherContent}
+      >
+        {cases.map((c) => {
+          const active = c.id === activeId;
+          return (
+            <Pressable
+              key={c.id}
+              onPress={() => {
+                if (!active) Haptics.selectionAsync();
+                onSelect(c.id);
+              }}
+              style={[
+                styles.caseChip,
+                {
+                  backgroundColor: active ? colors.primary : colors.surface,
+                  borderColor: active ? colors.primary : colors.border,
+                },
+              ]}
+            >
+              <Text
+                style={{
+                  color: active ? colors.primaryForeground : colors.textSecondary,
+                  fontSize: 12,
+                  fontFamily: 'Inter_500Medium',
+                }}
+                numberOfLines={1}
+              >
+                {c.title || 'Untitled'}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    </Animated.View>
+  );
+}
 
 export default function ChatTab() {
   const colors = useColors();
@@ -101,6 +179,16 @@ export default function ChatTab() {
         </Pressable>
       </View>
 
+      {/* ── Case switcher (only with more than one case) ── */}
+      {cases.length > 1 && (
+        <CaseSwitcher
+          cases={cases}
+          activeId={activeCase.id}
+          onSelect={setActiveCase}
+          colors={colors}
+        />
+      )}
+
       <CaseChat caseId={activeCase.id} messages={caseMessages} />
     </View>
   );
@@ -122,6 +210,23 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     gap: 10,
+  },
+  caseSwitcher: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 10,
+  },
+  caseSwitcherContent: {
+    paddingHorizontal: 16,
+    gap: 8,
+    flexDirection: 'row',
+  },
+  caseChip: {
+    maxWidth: 160,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    justifyContent: 'center',
   },
   caseInfo: { flex: 1 },
   caseName: { fontSize: 15, fontFamily: 'Inter_500Medium' },

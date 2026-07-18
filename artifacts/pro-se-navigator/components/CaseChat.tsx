@@ -1,21 +1,48 @@
-import React, { useCallback } from 'react';
-import { FlatList, View, StyleSheet, Alert } from 'react-native';
+import React, { useCallback, useRef, useState } from 'react';
+import {
+  FlatList,
+  View,
+  StyleSheet,
+  Alert,
+  Pressable,
+  Animated,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
+} from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { Feather } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import AIMessage from './AIMessage';
 import UserMessage from './UserMessage';
 import ChatInput from './ChatInput';
 import DeadlineDateEntry from './DeadlineDateEntry';
+import TypingIndicator from './TypingIndicator';
+import MessageActionSheet from './MessageActionSheet';
 import { PendingAttachment } from './AttachmentSheet';
 import { Message, NextStep, PendingDeadlineEntry } from '@/contexts/types';
 import { useCases } from '@/contexts/CasesContext';
+import { useColors } from '@/hooks/useColors';
 
 interface CaseChatProps {
   caseId: string;
   messages: Message[];
+  /** Auto-focus the input when the chat mounts (full-screen case view). */
+  autoFocusInput?: boolean;
 }
 
-export default function CaseChat({ caseId, messages }: CaseChatProps) {
+export default function CaseChat({ caseId, messages, autoFocusInput }: CaseChatProps) {
+  const colors = useColors();
   const { sendMessage, submitDeadlineTriggerDate, cases, uploadDocument } = useCases();
+
+  const flatListRef = useRef<FlatList<Message>>(null);
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
+  const showScrollBtnRef = useRef(false);
+  const scrollBtnOpacity = useRef(new Animated.Value(0)).current;
+
+  const [isNavigatorTyping, setIsNavigatorTyping] = useState(false);
+  // Long-press action sheet target + active quoted message for the input.
+  const [actionContent, setActionContent] = useState<string | null>(null);
+  const [quotedMessage, setQuotedMessage] = useState<string | null>(null);
 
   // Resolve pending deadline entry for this case
   const caseItem = cases.find((c) => c.id === caseId);
@@ -51,23 +78,34 @@ export default function CaseChat({ caseId, messages }: CaseChatProps) {
       }
 
       if (text.trim().length > 0) {
+        // Prepend the quoted snippet (if any) to the outgoing message.
+        const outgoing = quotedMessage
+          ? `> ${quotedMessage.slice(0, 60)}${quotedMessage.length > 60 ? '…' : ''}\n\n${text}`
+          : text;
+        setQuotedMessage(null);
+        setIsNavigatorTyping(true);
         try {
-          await sendMessage(caseId, text);
+          await sendMessage(caseId, outgoing);
         } catch (err) {
           console.error('[CaseChat] sendMessage error:', err);
           Alert.alert('Failed to send', 'Your message could not be saved. Please try again.');
+        } finally {
+          setIsNavigatorTyping(false);
         }
       }
     },
-    [caseId, sendMessage, uploadDocument],
+    [caseId, sendMessage, uploadDocument, quotedMessage],
   );
 
   const handleNextStep = useCallback(
     (step: NextStep) => {
-      sendMessage(caseId, step.label).catch((err) => {
-        console.error('[CaseChat] sendMessage error:', err);
-        Alert.alert('Failed to send', 'Your selection could not be saved. Please try again.');
-      });
+      setIsNavigatorTyping(true);
+      sendMessage(caseId, step.label)
+        .catch((err) => {
+          console.error('[CaseChat] sendMessage error:', err);
+          Alert.alert('Failed to send', 'Your selection could not be saved. Please try again.');
+        })
+        .finally(() => setIsNavigatorTyping(false));
     },
     [caseId, sendMessage],
   );
@@ -78,6 +116,29 @@ export default function CaseChat({ caseId, messages }: CaseChatProps) {
     },
     [caseId, submitDeadlineTriggerDate],
   );
+
+  // ── Scroll-to-bottom button (list is inverted: "bottom" == offset 0) ────────
+  const handleScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const y = e.nativeEvent.contentOffset.y;
+      const show = y > 200;
+      if (show !== showScrollBtnRef.current) {
+        showScrollBtnRef.current = show;
+        setShowScrollBtn(show);
+        Animated.timing(scrollBtnOpacity, {
+          toValue: show ? 1 : 0,
+          duration: 200,
+          useNativeDriver: true,
+        }).start();
+      }
+    },
+    [scrollBtnOpacity],
+  );
+
+  const scrollToBottom = useCallback(() => {
+    Haptics.selectionAsync();
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+  }, []);
 
   // Inverted FlatList — data must be reversed (newest-first in the array).
   const reversedMessages = [...messages].reverse();
@@ -95,6 +156,11 @@ export default function CaseChat({ caseId, messages }: CaseChatProps) {
     );
   }, []);
 
+  const openActions = useCallback((content: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setActionContent(content);
+  }, []);
+
   const renderItem = ({ item }: { item: Message }) => {
     if (item.role === 'navigator') {
       const isLatest   = item.id === lastNavId;
@@ -106,6 +172,8 @@ export default function CaseChat({ caseId, messages }: CaseChatProps) {
       return (
         <AIMessage
           content={item.content}
+          createdAt={item.createdAt}
+          onLongPress={() => openActions(item.content)}
           // Suppress next-step buttons when in deadline date entry mode —
           // DeadlineDateEntry is the active input instead.
           nextSteps={isLatest && !isEstimate ? item.nextSteps : undefined}
@@ -115,7 +183,13 @@ export default function CaseChat({ caseId, messages }: CaseChatProps) {
         />
       );
     }
-    return <UserMessage content={item.content} />;
+    return (
+      <UserMessage
+        content={item.content}
+        createdAt={item.createdAt}
+        onLongPress={() => openActions(item.content)}
+      />
+    );
   };
 
   return (
@@ -125,17 +199,42 @@ export default function CaseChat({ caseId, messages }: CaseChatProps) {
       keyboardVerticalOffset={0}
     >
       <FlatList
+        ref={flatListRef}
         data={reversedMessages}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
         inverted
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-        keyboardDismissMode="interactive"
+        keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
         scrollEnabled={!!reversedMessages.length}
-        ListHeaderComponent={<View style={{ height: 16 }} />}
+        onScroll={handleScroll}
+        scrollEventThrottle={100}
+        ListHeaderComponent={
+          <View>
+            {isNavigatorTyping ? <TypingIndicator /> : null}
+            <View style={{ height: 16 }} />
+          </View>
+        }
       />
+
+      {/* ── Scroll-to-bottom button ── */}
+      <Animated.View
+        pointerEvents={showScrollBtn ? 'auto' : 'none'}
+        style={[styles.scrollBtnWrap, { opacity: scrollBtnOpacity }]}
+      >
+        <Pressable
+          onPress={scrollToBottom}
+          style={({ pressed }) => [
+            styles.scrollBtn,
+            { backgroundColor: colors.amber },
+            pressed && { opacity: 0.8 },
+          ]}
+        >
+          <Feather name="chevrons-down" size={20} color={colors.amberText} />
+        </Pressable>
+      </Animated.View>
 
       {/* ── Bottom input area ── */}
       {pendingEntry ? (
@@ -146,8 +245,20 @@ export default function CaseChat({ caseId, messages }: CaseChatProps) {
           onSubmit={handleSubmitDeadlineDate}
         />
       ) : (
-        <ChatInput onSend={handleSend} />
+        <ChatInput
+          onSend={handleSend}
+          autoFocus={autoFocusInput}
+          quotedMessage={quotedMessage}
+          onClearQuote={() => setQuotedMessage(null)}
+        />
       )}
+
+      {/* ── Long-press message actions ── */}
+      <MessageActionSheet
+        content={actionContent}
+        onClose={() => setActionContent(null)}
+        onQuote={(content) => setQuotedMessage(content)}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -155,4 +266,21 @@ export default function CaseChat({ caseId, messages }: CaseChatProps) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   listContent: { paddingTop: 4 },
+  scrollBtnWrap: {
+    position: 'absolute',
+    right: 20,
+    bottom: 88,
+  },
+  scrollBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 5,
+  },
 });
