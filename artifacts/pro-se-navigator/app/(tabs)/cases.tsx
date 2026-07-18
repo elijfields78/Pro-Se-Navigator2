@@ -16,7 +16,6 @@ import { useCases } from '@/contexts/CasesContext';
 import { useAuth } from '@/contexts/AuthContext';
 import CaseCard from '@/components/CaseCard';
 import SearchBar from '@/components/SearchBar';
-import GlobalSearch from '@/components/GlobalSearch';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -69,7 +68,6 @@ export default function CasesScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState('');
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
-  const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
 
   // Undo-able delete: the swiped card is hidden immediately and only committed
   // to the DB after a 4s grace period (or right away if superseded).
@@ -199,7 +197,7 @@ export default function CasesScreen() {
             <Pressable
               onPress={() => {
                 Haptics.selectionAsync();
-                setGlobalSearchOpen(true);
+                router.push('/search');
               }}
               style={[styles.iconBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
               hitSlop={6}
@@ -328,8 +326,6 @@ export default function CasesScreen() {
           </Pressable>
         </View>
       )}
-
-      <GlobalSearch visible={globalSearchOpen} onClose={() => setGlobalSearchOpen(false)} />
     </View>
   );
 }

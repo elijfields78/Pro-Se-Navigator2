@@ -34,30 +34,41 @@ export default function DeadlineCard({ deadline, showCaseTitle }: DeadlineCardPr
   else if (isUrgent) urgencyLabel = `${days} day${days === 1 ? '' : 's'} away`;
   else urgencyLabel = formatDate(deadline.dueDate);
 
-  // Three-state visual system
+  // Three-state visual system — all states derive from the active palette so
+  // overdue/urgent cards read correctly in both light and Counsel Dark.
   if (isOverdue) {
     return (
-      <View style={[styles.card, styles.overdueCard]}>
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: colors.destructive + '14',
+            borderColor: colors.destructive + '44',
+            shadowColor: colors.destructive,
+            shadowOpacity: 0.08,
+          },
+        ]}
+      >
         <View style={styles.header}>
-          <Feather name="alert-circle" size={13} color="#DC2626" />
-          <Text style={[styles.urgency, { color: '#DC2626' }]}>{urgencyLabel}</Text>
-          <Text style={[styles.date, { color: '#DC262699' }]}>· {formatDate(deadline.dueDate)}</Text>
+          <Feather name="alert-circle" size={13} color={colors.destructive} />
+          <Text style={[styles.urgency, { color: colors.destructive }]}>{urgencyLabel}</Text>
+          <Text style={[styles.date, { color: colors.destructive + '99' }]}>· {formatDate(deadline.dueDate)}</Text>
         </View>
-        <Text style={[styles.description, { color: '#7F1D1D', fontFamily: 'Inter_600SemiBold' }]}>
+        <Text style={[styles.description, { color: colors.text, fontFamily: 'Inter_600SemiBold' }]}>
           {deadline.description}
         </Text>
         {showCaseTitle && (
-          <Text style={[styles.caseTitle, { color: '#991B1B' }]}>{deadline.caseTitle}</Text>
+          <Text style={[styles.caseTitle, { color: colors.textSecondary }]}>{deadline.caseTitle}</Text>
         )}
-        <Text style={[styles.rule, { color: '#B91C1CBB' }]}>{deadline.ruleBasis}</Text>
-        <Text style={[styles.disclaimer, { color: '#DC262688' }]}>Confirm against your court's rules.</Text>
+        <Text style={[styles.rule, { color: colors.destructive + 'BB' }]}>{deadline.ruleBasis}</Text>
+        <Text style={[styles.disclaimer, { color: colors.destructive + '88' }]}>Confirm against your court's rules.</Text>
       </View>
     );
   }
 
   if (isUrgent) {
     return (
-      <View style={[styles.card, { backgroundColor: colors.deadlineBg, borderColor: '#D97706' + '44' }]}>
+      <View style={[styles.card, { backgroundColor: colors.deadlineBg, borderColor: colors.deadlineText + '44' }]}>
         <View style={styles.header}>
           <Feather name="clock" size={13} color={colors.deadlineText} />
           <Text style={[styles.urgency, { color: colors.deadlineText }]}>{urgencyLabel}</Text>
@@ -65,7 +76,7 @@ export default function DeadlineCard({ deadline, showCaseTitle }: DeadlineCardPr
             <Text style={[styles.date, { color: colors.deadlineText + '88' }]}>· {formatDate(deadline.dueDate)}</Text>
           )}
         </View>
-        <Text style={[styles.description, { color: '#422006', fontFamily: 'Inter_600SemiBold' }]}>
+        <Text style={[styles.description, { color: colors.text, fontFamily: 'Inter_600SemiBold' }]}>
           {deadline.description}
         </Text>
         {showCaseTitle && (
@@ -107,12 +118,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 2,
-  },
-  overdueCard: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FECACA',
-    shadowColor: '#DC2626',
-    shadowOpacity: 0.08,
   },
   header: {
     flexDirection: 'row',

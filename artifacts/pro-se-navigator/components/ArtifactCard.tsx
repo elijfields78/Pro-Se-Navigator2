@@ -21,22 +21,21 @@ const KIND_ICONS: Record<ArtifactKind, string> = {
   other: 'file',
 };
 
-// Kind-specific icon container colors — light-only (v1)
-const KIND_STYLE: Record<ArtifactKind, { bg: string; icon: string }> = {
-  motion: { bg: '#E1F5EE', icon: '#0F6E56' },
-  letter: { bg: '#FFF4E5', icon: '#92500A' },
-  form:   { bg: '#F0F4FF', icon: '#3B5BDB' },
-  note:   { bg: '#F5F4F0', icon: '#6B6A63' },
-  other:  { bg: '#F5F4F0', icon: '#6B6A63' },
-};
-
-const KIND_BADGE: Record<ArtifactKind, { bg: string; text: string }> = {
-  motion: { bg: '#E1F5EE', text: '#0F6E56' },
-  letter: { bg: '#FFF4E5', text: '#92500A' },
-  form:   { bg: '#F0F4FF', text: '#3B5BDB' },
-  note:   { bg: '#EFEFEB', text: '#6B6A63' },
-  other:  { bg: '#EFEFEB', text: '#6B6A63' },
-};
+/**
+ * Kind styling is theme-aware: filings (motions/letters/forms) get the jade
+ * treatment, notes and misc stay neutral. Differentiation between kinds is
+ * carried by the icon glyph and badge label, not by pastel colors that only
+ * worked on the light palette.
+ */
+function kindColors(kind: ArtifactKind, colors: ReturnType<typeof useColors>) {
+  const isNeutral = kind === 'note' || kind === 'other';
+  return {
+    iconBg: isNeutral ? colors.surfaceOffset : colors.primaryDim,
+    icon: isNeutral ? colors.textSecondary : colors.primary,
+    badgeBg: isNeutral ? colors.surfaceOffset : colors.verifiedBg,
+    badgeText: isNeutral ? colors.textSecondary : colors.verifiedText,
+  };
+}
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -59,8 +58,7 @@ interface ArtifactCardProps {
 
 export default function ArtifactCard({ artifact, showCaseTitle, onPress, onDelete }: ArtifactCardProps) {
   const colors = useColors();
-  const kindStyle = KIND_STYLE[artifact.kind];
-  const badge = KIND_BADGE[artifact.kind];
+  const kc = kindColors(artifact.kind, colors);
 
   const handleLongPress = () => {
     if (!onDelete) return;
@@ -88,8 +86,8 @@ export default function ArtifactCard({ artifact, showCaseTitle, onPress, onDelet
     >
       {/* Icon + title row */}
       <View style={styles.top}>
-        <View style={[styles.iconWrap, { backgroundColor: kindStyle.bg }]}>
-          <Feather name={KIND_ICONS[artifact.kind] as any} size={18} color={kindStyle.icon} />
+        <View style={[styles.iconWrap, { backgroundColor: kc.iconBg }]}>
+          <Feather name={KIND_ICONS[artifact.kind] as any} size={18} color={kc.icon} />
         </View>
         <View style={styles.titleBlock}>
           <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
@@ -108,8 +106,8 @@ export default function ArtifactCard({ artifact, showCaseTitle, onPress, onDelet
 
       {/* Kind badge */}
       <View style={styles.meta}>
-        <View style={[styles.badge, { backgroundColor: badge.bg }]}>
-          <Text style={[styles.badgeText, { color: badge.text }]}>
+        <View style={[styles.badge, { backgroundColor: kc.badgeBg }]}>
+          <Text style={[styles.badgeText, { color: kc.badgeText }]}>
             {KIND_LABELS[artifact.kind]}
           </Text>
         </View>

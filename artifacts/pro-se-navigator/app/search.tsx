@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,6 @@ import {
   TextInput,
   SectionList,
   Keyboard,
-  Platform,
-  StatusBar,
-  Animated,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -23,11 +20,6 @@ import {
   GlobalResultType,
 } from '@/hooks/useGlobalSearch';
 
-interface GlobalSearchProps {
-  visible: boolean;
-  onClose: () => void;
-}
-
 const TYPE_ICON: Record<GlobalResultType, keyof typeof Feather.glyphMap> = {
   case: 'folder',
   message: 'message-circle',
@@ -35,46 +27,29 @@ const TYPE_ICON: Record<GlobalResultType, keyof typeof Feather.glyphMap> = {
   source: 'book-open',
 };
 
+// Session-only recent searches, kept at module level so they survive the
+// screen unmounting between visits.
+let recentSearches: string[] = [];
+
 /**
- * Full-screen search across cases, messages, deadlines, and sources.
+ * Global search — a real navigation screen (pushed as /search).
  *
- * Rendered as an in-tree absolute overlay rather than a React Native Modal:
- * modals render in a separate portal where safe-area insets report 0 and
- * stacking/z-index behaves differently on web, which caused the search field
- * to sit under the top bar and be untappable. An in-tree overlay has none of
- * those quirks — insets, keyboard, and touch all behave normally.
+ * Previous incarnations used a Modal, then an absolute overlay; both fought
+ * the host environment (portal insets, web stacking) and left the field
+ * unreachable. As an ordinary routed screen it gets safe areas, keyboard,
+ * and touch identical to every other screen — nothing to fight.
  *
- * Input is debounced 200ms; recent searches (session-only, last 5) show as
- * chips while the query is empty. Purely navigational — no data mutations.
+ * Searches cases, messages, deadlines, and sources (client-side, debounced
+ * 200ms). Purely navigational — no data mutations.
  */
-export default function GlobalSearch({ visible, onClose }: GlobalSearchProps) {
+export default function SearchScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { setActiveCase } = useCases();
 
   const [input, setInput] = useState('');
   const [query, setQuery] = useState('');
-  const [recents, setRecents] = useState<string[]>([]);
-
-  // Entrance animation: slight rise + fade when the overlay appears.
-  const slide = useRef(new Animated.Value(24)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    if (visible) {
-      slide.setValue(24);
-      opacity.setValue(0);
-      Animated.parallel([
-        Animated.timing(slide, { toValue: 0, duration: 200, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
-      ]).start();
-    }
-  }, [visible, slide, opacity]);
-
-  // Belt-and-braces top spacing: insets normally work in-tree, but fall back
-  // to the status-bar height (or 44px) if they ever report 0.
-  const topInset =
-    insets.top ||
-    (Platform.OS === 'android' ? StatusBar.currentHeight ?? 24 : 44);
+  const [recents, setRecents] = useState<string[]>(recentSearches);
 
   const sections = useGlobalSearch(query);
 
@@ -84,63 +59,44 @@ export default function GlobalSearch({ visible, onClose }: GlobalSearchProps) {
     return () => clearTimeout(t);
   }, [input]);
 
-  // Reset the field each time the overlay opens.
-  useEffect(() => {
-    if (visible) {
-      setInput('');
-      setQuery('');
-    }
-  }, [visible]);
-
   const rememberSearch = useCallback((term: string) => {
     const t = term.trim();
     if (!t) return;
-    setRecents((prev) => [t, ...prev.filter((r) => r !== t)].slice(0, 5));
+    recentSearches = [t, ...recentSearches.filter((r) => r !== t)].slice(0, 5);
+    setRecents(recentSearches);
   }, []);
 
   const close = useCallback(() => {
     Keyboard.dismiss();
-    onClose();
-  }, [onClose]);
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)/cases');
+  }, []);
 
   const handleSelect = useCallback(
     (result: GlobalResult) => {
       Haptics.selectionAsync();
       rememberSearch(query);
-      close();
       switch (result.type) {
         case 'case':
         case 'message':
           setActiveCase(result.caseId);
-          router.push(`/case/${result.caseId}`);
+          router.replace(`/case/${result.caseId}`);
           break;
         case 'deadline':
-          router.push('/(tabs)/deadlines');
+          router.replace('/(tabs)/deadlines');
           break;
         case 'source':
-          router.push('/(tabs)/sources');
+          router.replace('/(tabs)/sources');
           break;
       }
     },
-    [query, rememberSearch, close, setActiveCase],
+    [query, rememberSearch, setActiveCase],
   );
 
   const hasQuery = query.trim().length > 0;
 
-  if (!visible) return null;
-
   return (
-    <Animated.View
-      style={[
-        styles.overlay,
-        {
-          backgroundColor: colors.background,
-          paddingTop: topInset + 8,
-          opacity,
-          transform: [{ translateY: slide }],
-        },
-      ]}
-    >
+    <View style={[styles.root, { backgroundColor: colors.background, paddingTop: insets.top + 8 }]}>
       {/* ── Search field ── */}
       <View style={styles.searchRow}>
         <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -209,6 +165,7 @@ export default function GlobalSearch({ visible, onClose }: GlobalSearchProps) {
           sections={sections}
           keyExtractor={(item) => item.key}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
           renderSectionHeader={({ section }) => (
             <Text style={[styles.sectionHeader, { color: colors.textMuted, backgroundColor: colors.background }]}>
@@ -238,17 +195,12 @@ export default function GlobalSearch({ visible, onClose }: GlobalSearchProps) {
           )}
         />
       )}
-    </Animated.View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    paddingHorizontal: 16,
-    zIndex: 1000,
-    elevation: 24,
-  },
+  root: { flex: 1, paddingHorizontal: 16 },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',

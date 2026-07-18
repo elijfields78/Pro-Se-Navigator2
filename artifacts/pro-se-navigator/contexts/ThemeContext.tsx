@@ -39,16 +39,18 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [preference, setPreferenceState] = useState<ThemePreference>('dark');
   const system = useSystemColorScheme();
 
-  // Load the saved preference once on mount.
+  // Load the saved preference once on mount. A previously stored 'system'
+  // preference is coerced to 'dark' — the System option was removed from the
+  // UI (it duplicated whichever mode the device was in and confused users).
   useEffect(() => {
     let active = true;
     AsyncStorage.getItem(STORAGE_KEY)
       .then((stored) => {
-        if (
-          active &&
-          (stored === 'light' || stored === 'dark' || stored === 'system')
-        ) {
+        if (!active) return;
+        if (stored === 'light' || stored === 'dark') {
           setPreferenceState(stored);
+        } else if (stored === 'system') {
+          setPreferenceState('dark');
         }
       })
       .catch(() => {

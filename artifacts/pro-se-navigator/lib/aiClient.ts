@@ -5,8 +5,7 @@
  * EXPO_PUBLIC_API_URL; attaches the Supabase access token as Bearer.
  */
 import { supabase } from '@/lib/supabase';
-
-const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? '';
+import { API_BASE } from '@/lib/apiBase';
 
 export interface AiCitation {
   n: number;

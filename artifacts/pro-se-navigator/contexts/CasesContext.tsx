@@ -218,8 +218,10 @@ export function CasesProvider({ children }: { children: ReactNode }) {
     loadAll(user.id);
   }, [user]);
 
-  const loadAll = useCallback(async (uid: string) => {
-    setIsLoading(true);
+  const loadAll = useCallback(async (uid: string, opts: { silent?: boolean } = {}) => {
+    // silent: keep isLoading untouched so pull-to-refresh doesn't swap the
+    // whole screen for a spinner — the RefreshControl is the only indicator.
+    if (!opts.silent) setIsLoading(true);
     try {
       const [casesRes, messagesRes, deadlinesRes, sourcesRes, artifactsRes] = await Promise.all([
         supabase.from('cases').select('*').eq('user_id', uid).order('created_at', { ascending: false }),
@@ -253,7 +255,7 @@ export function CasesProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error('[CasesContext] loadAll error:', err);
     } finally {
-      setIsLoading(false);
+      if (!opts.silent) setIsLoading(false);
     }
 
     // Documents load separately and defensively: the documents table/bucket
@@ -267,10 +269,11 @@ export function CasesProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // ── refresh (pull-to-refresh) ───────────────────────────────────────────────
-  // Re-runs the same full load used on mount. No-op when signed out.
+  // Re-runs the same full load used on mount, silently: the list stays mounted
+  // and the native RefreshControl spinner is the only loading indicator.
   const refresh = useCallback(async () => {
     if (!user) return;
-    await loadAll(user.id);
+    await loadAll(user.id, { silent: true });
   }, [user, loadAll]);
 
   // ── createCase ────────────────────────────────────────────────────────────

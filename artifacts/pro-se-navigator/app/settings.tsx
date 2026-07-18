@@ -186,7 +186,6 @@ const THEME_OPTIONS: {
 }[] = [
   { value: 'light', label: 'Light', icon: 'sun' },
   { value: 'dark', label: 'Dark', icon: 'moon' },
-  { value: 'system', label: 'System', icon: 'smartphone' },
 ];
 
 /** Segmented Light / Dark / System control. */
@@ -266,7 +265,7 @@ function MenuRow({
       onPress={onPress}
       disabled={placeholder}
     >
-      <View style={[styles.menuIconWrap, { backgroundColor: destructive ? '#FEE2E2' : colors.background }]}>
+      <View style={[styles.menuIconWrap, { backgroundColor: destructive ? colors.destructive + '22' : colors.background }]}>
         <Feather name={icon as any} size={16} color={iconColor} />
       </View>
       <View style={styles.menuRowContent}>

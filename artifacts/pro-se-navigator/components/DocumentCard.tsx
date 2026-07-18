@@ -11,22 +11,22 @@ const SOURCE_LABELS: Record<DocumentSource, string> = {
   file: 'File',
 };
 
-/** Pick an icon + color from the document's MIME type, falling back to source. */
-function visualFor(doc: CaseDocument): { icon: string; bg: string; color: string } {
+/** Pick an icon + theme-aware colors from the document's MIME type. */
+function visualFor(
+  doc: CaseDocument,
+  colors: ReturnType<typeof useColors>,
+): { icon: string; bg: string; color: string } {
   const mime = doc.mimeType ?? '';
   if (mime.startsWith('image/') || doc.source === 'image' || doc.source === 'camera') {
-    return { icon: 'image', bg: '#F0F4FF', color: '#3B5BDB' };
+    return { icon: 'image', bg: colors.primaryDim, color: colors.primary };
   }
   if (mime === 'application/pdf') {
-    return { icon: 'file-text', bg: '#FCEDEC', color: '#C0392B' };
-  }
-  if (mime.startsWith('text/')) {
-    return { icon: 'file-text', bg: '#F5F4F0', color: '#6B6A63' };
+    return { icon: 'file-text', bg: colors.destructive + '18', color: colors.destructive };
   }
   if (mime.includes('word')) {
-    return { icon: 'file-text', bg: '#F0F4FF', color: '#3B5BDB' };
+    return { icon: 'file-text', bg: colors.primaryDim, color: colors.primary };
   }
-  return { icon: 'file', bg: '#F5F4F0', color: '#6B6A63' };
+  return { icon: mime.startsWith('text/') ? 'file-text' : 'file', bg: colors.surfaceOffset, color: colors.textSecondary };
 }
 
 function formatSize(bytes?: number): string {
@@ -66,7 +66,7 @@ export default function DocumentCard({
   opening,
 }: DocumentCardProps) {
   const colors = useColors();
-  const visual = visualFor(document);
+  const visual = visualFor(document, colors);
   const size = formatSize(document.sizeBytes);
 
   const handleLongPress = () => {

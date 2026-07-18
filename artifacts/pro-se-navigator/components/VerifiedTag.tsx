@@ -11,8 +11,14 @@ interface VerifiedTagProps {
 export default function VerifiedTag({ label = 'verified', status = 'verified' }: VerifiedTagProps) {
   const colors = useColors();
 
-  const bg = status === 'verified' ? colors.verifiedBg : status === 'failed' ? '#FEE2E2' : '#FEF9C3';
-  const fg = status === 'verified' ? colors.verifiedText : status === 'failed' ? '#B91C1C' : '#92400E';
+  const bg =
+    status === 'verified' ? colors.verifiedBg
+    : status === 'failed' ? colors.destructive + '22'
+    : colors.deadlineBg;
+  const fg =
+    status === 'verified' ? colors.verifiedText
+    : status === 'failed' ? colors.destructive
+    : colors.deadlineText;
   const icon = status === 'verified' ? 'check' : status === 'failed' ? 'x' : 'clock';
 
   return (

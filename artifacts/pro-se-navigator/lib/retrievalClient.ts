@@ -8,8 +8,7 @@
  * state instead of attempting a request.
  */
 import { supabase } from '@/lib/supabase';
-
-const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? '';
+import { API_BASE } from '@/lib/apiBase';
 
 export interface LegalSearchResult {
   citation: string;

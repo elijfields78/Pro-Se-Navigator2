@@ -160,7 +160,7 @@ export default function CaseDetailScreen() {
 
       {/* ── Chat / Artifacts segmented control ── */}
       <View style={[styles.segmentWrap, { borderBottomColor: colors.border, backgroundColor: colors.background }]}>
-        <View style={[styles.segmentRow, { backgroundColor: 'rgba(28,27,24,0.06)' }]}>
+        <View style={[styles.segmentRow, { backgroundColor: colors.surfaceOffset }]}>
           <Pressable
             style={[
               styles.segmentTab,
@@ -184,7 +184,9 @@ export default function CaseDetailScreen() {
             </Text>
             {caseArtifacts.length > 0 && (
               <View style={[styles.countBadge, { backgroundColor: colors.primary }]}>
-                <Text style={styles.countBadgeText}>{caseArtifacts.length}</Text>
+                <Text style={[styles.countBadgeText, { color: colors.primaryForeground }]}>
+                  {caseArtifacts.length}
+                </Text>
               </View>
             )}
           </Pressable>
@@ -200,7 +202,9 @@ export default function CaseDetailScreen() {
             </Text>
             {caseDocuments.length > 0 && (
               <View style={[styles.countBadge, { backgroundColor: colors.primary }]}>
-                <Text style={styles.countBadgeText}>{caseDocuments.length}</Text>
+                <Text style={[styles.countBadgeText, { color: colors.primaryForeground }]}>
+                  {caseDocuments.length}
+                </Text>
               </View>
             )}
           </Pressable>
@@ -482,7 +486,6 @@ const styles = StyleSheet.create({
   countBadgeText: {
     fontSize: 10,
     fontFamily: 'Inter_600SemiBold',
-    color: '#fff',
   },
 
   // Artifacts view

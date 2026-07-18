@@ -70,6 +70,10 @@ function RootLayoutNav() {
           options={{ headerShown: false, animation: 'slide_from_right' }}
         />
         <Stack.Screen
+          name="search"
+          options={{ headerShown: false, animation: 'slide_from_bottom' }}
+        />
+        <Stack.Screen
           name="usage"
           options={{ headerShown: false, animation: 'slide_from_right' }}
         />
