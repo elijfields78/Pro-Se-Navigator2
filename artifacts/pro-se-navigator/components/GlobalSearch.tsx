@@ -1,15 +1,15 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
   TextInput,
-  Modal,
   SectionList,
   Keyboard,
   Platform,
   StatusBar,
+  Animated,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -37,6 +37,13 @@ const TYPE_ICON: Record<GlobalResultType, keyof typeof Feather.glyphMap> = {
 
 /**
  * Full-screen search across cases, messages, deadlines, and sources.
+ *
+ * Rendered as an in-tree absolute overlay rather than a React Native Modal:
+ * modals render in a separate portal where safe-area insets report 0 and
+ * stacking/z-index behaves differently on web, which caused the search field
+ * to sit under the top bar and be untappable. An in-tree overlay has none of
+ * those quirks — insets, keyboard, and touch all behave normally.
+ *
  * Input is debounced 200ms; recent searches (session-only, last 5) show as
  * chips while the query is empty. Purely navigational — no data mutations.
  */
@@ -49,9 +56,22 @@ export default function GlobalSearch({ visible, onClose }: GlobalSearchProps) {
   const [query, setQuery] = useState('');
   const [recents, setRecents] = useState<string[]>([]);
 
-  // Inside a Modal, useSafeAreaInsets() often reports 0 because the modal
-  // renders outside the SafeAreaProvider. Fall back to a sane top spacing so
-  // the search field never hides under the status bar / notch.
+  // Entrance animation: slight rise + fade when the overlay appears.
+  const slide = useRef(new Animated.Value(24)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (visible) {
+      slide.setValue(24);
+      opacity.setValue(0);
+      Animated.parallel([
+        Animated.timing(slide, { toValue: 0, duration: 200, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [visible, slide, opacity]);
+
+  // Belt-and-braces top spacing: insets normally work in-tree, but fall back
+  // to the status-bar height (or 44px) if they ever report 0.
   const topInset =
     insets.top ||
     (Platform.OS === 'android' ? StatusBar.currentHeight ?? 24 : 44);
@@ -64,7 +84,7 @@ export default function GlobalSearch({ visible, onClose }: GlobalSearchProps) {
     return () => clearTimeout(t);
   }, [input]);
 
-  // Reset the field each time the modal opens.
+  // Reset the field each time the overlay opens.
   useEffect(() => {
     if (visible) {
       setInput('');
@@ -107,118 +127,128 @@ export default function GlobalSearch({ visible, onClose }: GlobalSearchProps) {
 
   const hasQuery = query.trim().length > 0;
 
-  return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      onRequestClose={close}
-      statusBarTranslucent
-    >
-      <View style={[styles.root, { backgroundColor: colors.background, paddingTop: topInset + 8 }]}>
-        {/* ── Search field ── */}
-        <View style={styles.searchRow}>
-          <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Feather name="search" size={18} color={colors.textMuted} />
-            <TextInput
-              style={[styles.input, { color: colors.text }]}
-              value={input}
-              onChangeText={setInput}
-              placeholder="Search cases, messages, sources…"
-              placeholderTextColor={colors.textMuted}
-              autoFocus
-              autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="search"
-              onSubmitEditing={() => rememberSearch(input)}
-            />
-            {input.length > 0 && (
-              <Pressable onPress={() => setInput('')} hitSlop={8}>
-                <Feather name="x" size={18} color={colors.textMuted} />
-              </Pressable>
-            )}
-          </View>
-          <Pressable onPress={close} hitSlop={8} style={styles.cancelBtn}>
-            <Text style={[styles.cancelText, { color: colors.primary }]}>Cancel</Text>
-          </Pressable>
-        </View>
+  if (!visible) return null;
 
-        {/* ── Body ── */}
-        {!hasQuery ? (
-          <View style={styles.emptyWrap}>
-            {recents.length > 0 && (
-              <View style={styles.recentsWrap}>
-                <Text style={[styles.recentsLabel, { color: colors.textMuted }]}>RECENT</Text>
-                <View style={styles.recentChips}>
-                  {recents.map((r) => (
-                    <Pressable
-                      key={r}
-                      onPress={() => setInput(r)}
-                      style={[styles.chip, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                    >
-                      <Feather name="clock" size={12} color={colors.textMuted} />
-                      <Text style={[styles.chipText, { color: colors.textSecondary }]} numberOfLines={1}>
-                        {r}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
+  return (
+    <Animated.View
+      style={[
+        styles.overlay,
+        {
+          backgroundColor: colors.background,
+          paddingTop: topInset + 8,
+          opacity,
+          transform: [{ translateY: slide }],
+        },
+      ]}
+    >
+      {/* ── Search field ── */}
+      <View style={styles.searchRow}>
+        <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Feather name="search" size={18} color={colors.textMuted} />
+          <TextInput
+            style={[styles.input, { color: colors.text }]}
+            value={input}
+            onChangeText={setInput}
+            placeholder="Search cases, messages, sources…"
+            placeholderTextColor={colors.textMuted}
+            autoFocus
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="search"
+            onSubmitEditing={() => rememberSearch(input)}
+          />
+          {input.length > 0 && (
+            <Pressable onPress={() => setInput('')} hitSlop={8}>
+              <Feather name="x" size={18} color={colors.textMuted} />
+            </Pressable>
+          )}
+        </View>
+        <Pressable onPress={close} hitSlop={8} style={styles.cancelBtn}>
+          <Text style={[styles.cancelText, { color: colors.primary }]}>Cancel</Text>
+        </Pressable>
+      </View>
+
+      {/* ── Body ── */}
+      {!hasQuery ? (
+        <View style={styles.emptyWrap}>
+          {recents.length > 0 && (
+            <View style={styles.recentsWrap}>
+              <Text style={[styles.recentsLabel, { color: colors.textMuted }]}>RECENT</Text>
+              <View style={styles.recentChips}>
+                {recents.map((r) => (
+                  <Pressable
+                    key={r}
+                    onPress={() => setInput(r)}
+                    style={[styles.chip, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                  >
+                    <Feather name="clock" size={12} color={colors.textMuted} />
+                    <Text style={[styles.chipText, { color: colors.textSecondary }]} numberOfLines={1}>
+                      {r}
+                    </Text>
+                  </Pressable>
+                ))}
               </View>
-            )}
-            <View style={styles.hint}>
-              <Feather name="search" size={28} color={colors.textMuted} />
-              <Text style={[styles.hintText, { color: colors.textMuted }]}>
-                Search your cases, messages, and sources
-              </Text>
             </View>
-          </View>
-        ) : sections.length === 0 ? (
+          )}
           <View style={styles.hint}>
-            <Feather name="inbox" size={28} color={colors.textMuted} />
+            <Feather name="search" size={28} color={colors.textMuted} />
             <Text style={[styles.hintText, { color: colors.textMuted }]}>
-              No matches for "{query.trim()}"
+              Search your cases, messages, and sources
             </Text>
           </View>
-        ) : (
-          <SectionList
-            sections={sections}
-            keyExtractor={(item) => item.key}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
-            renderSectionHeader={({ section }) => (
-              <Text style={[styles.sectionHeader, { color: colors.textMuted, backgroundColor: colors.background }]}>
-                {section.title}
-              </Text>
-            )}
-            renderItem={({ item }) => (
-              <Pressable
-                onPress={() => handleSelect(item)}
-                style={({ pressed }) => [styles.resultRow, pressed && { backgroundColor: colors.surface }]}
-              >
-                <View style={[styles.resultIcon, { backgroundColor: colors.primaryDim }]}>
-                  <Feather name={TYPE_ICON[item.type]} size={15} color={colors.primary} />
-                </View>
-                <View style={styles.resultBody}>
-                  <Text style={[styles.resultTitle, { color: colors.text }]} numberOfLines={1}>
-                    {item.title}
+        </View>
+      ) : sections.length === 0 ? (
+        <View style={styles.hint}>
+          <Feather name="inbox" size={28} color={colors.textMuted} />
+          <Text style={[styles.hintText, { color: colors.textMuted }]}>
+            No matches for "{query.trim()}"
+          </Text>
+        </View>
+      ) : (
+        <SectionList
+          sections={sections}
+          keyExtractor={(item) => item.key}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+          renderSectionHeader={({ section }) => (
+            <Text style={[styles.sectionHeader, { color: colors.textMuted, backgroundColor: colors.background }]}>
+              {section.title}
+            </Text>
+          )}
+          renderItem={({ item }) => (
+            <Pressable
+              onPress={() => handleSelect(item)}
+              style={({ pressed }) => [styles.resultRow, pressed && { backgroundColor: colors.surface }]}
+            >
+              <View style={[styles.resultIcon, { backgroundColor: colors.primaryDim }]}>
+                <Feather name={TYPE_ICON[item.type]} size={15} color={colors.primary} />
+              </View>
+              <View style={styles.resultBody}>
+                <Text style={[styles.resultTitle, { color: colors.text }]} numberOfLines={1}>
+                  {item.title}
+                </Text>
+                {item.subtitle ? (
+                  <Text style={[styles.resultSub, { color: colors.textMuted }]} numberOfLines={1}>
+                    {item.subtitle}
                   </Text>
-                  {item.subtitle ? (
-                    <Text style={[styles.resultSub, { color: colors.textMuted }]} numberOfLines={1}>
-                      {item.subtitle}
-                    </Text>
-                  ) : null}
-                </View>
-                <Feather name="chevron-right" size={16} color={colors.textMuted} />
-              </Pressable>
-            )}
-          />
-        )}
-      </View>
-    </Modal>
+                ) : null}
+              </View>
+              <Feather name="chevron-right" size={16} color={colors.textMuted} />
+            </Pressable>
+          )}
+        />
+      )}
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, paddingHorizontal: 16 },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    paddingHorizontal: 16,
+    zIndex: 1000,
+    elevation: 24,
+  },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
