@@ -6,9 +6,6 @@ import {
   StyleSheet,
   Modal,
   Alert,
-  Platform,
-  Animated,
-  useWindowDimensions,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
@@ -76,7 +73,6 @@ export default function AttachmentSheet({ visible, onClose, onAttach }: Attachme
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const plan = usePlan();
-  const { height } = useWindowDimensions();
 
   const requestMediaPermission = async (source: 'library' | 'camera') => {
     if (source === 'camera') {

@@ -89,24 +89,24 @@ after cycles touching navigator-web app code, and at the end.
 | artifacts/pro-se-navigator/app/settings.tsx | — | |
 | artifacts/pro-se-navigator/app/usage.tsx | — | |
 | artifacts/pro-se-navigator/babel.config.js | — | |
-| artifacts/pro-se-navigator/components/AIMessage.tsx | — | |
-| artifacts/pro-se-navigator/components/ActivityRow.tsx | — | |
+| artifacts/pro-se-navigator/components/AIMessage.tsx | 10 | reviewed: typewriter cleanup on unmount, bounded replay cache — sound |
+| artifacts/pro-se-navigator/components/ActivityRow.tsx | 10 | reviewed: pulse loop cleanup — sound |
 | artifacts/pro-se-navigator/components/ArtifactCard.tsx | — | |
-| artifacts/pro-se-navigator/components/AttachmentSheet.tsx | — | |
+| artifacts/pro-se-navigator/components/AttachmentSheet.tsx | 10 | FIXED: dead imports removed (Animated, useWindowDimensions, Platform); permission flows sound |
 | artifacts/pro-se-navigator/components/CaseCard.tsx | — | |
-| artifacts/pro-se-navigator/components/CaseChat.tsx | — | |
-| artifacts/pro-se-navigator/components/ChatInput.tsx | — | |
+| artifacts/pro-se-navigator/components/CaseChat.tsx | 10 | FIXED: memoized reversed list + lastNavId (was re-reversing every render, breaking item identity) |
+| artifacts/pro-se-navigator/components/ChatInput.tsx | 10 | reviewed: dictation stop-on-send, glow/pulse loops cleaned up — sound |
 | artifacts/pro-se-navigator/components/DeadlineCard.tsx | — | |
-| artifacts/pro-se-navigator/components/DeadlineDateEntry.tsx | — | |
+| artifacts/pro-se-navigator/components/DeadlineDateEntry.tsx | 10 | reviewed: loading/error/disabled handling present — sound |
 | artifacts/pro-se-navigator/components/DocumentCard.tsx | — | |
 | artifacts/pro-se-navigator/components/ErrorBoundary.tsx | — | |
 | artifacts/pro-se-navigator/components/ErrorFallback.tsx | — | |
 | artifacts/pro-se-navigator/components/KeyboardAwareScrollViewCompat.tsx | — | |
-| artifacts/pro-se-navigator/components/MessageActionSheet.tsx | — | |
-| artifacts/pro-se-navigator/components/NextStepRow.tsx | — | |
+| artifacts/pro-se-navigator/components/MessageActionSheet.tsx | 10 | reviewed: share error alert, clipboard — sound |
+| artifacts/pro-se-navigator/components/NextStepRow.tsx | 10 | reviewed: sound |
 | artifacts/pro-se-navigator/components/SearchBar.tsx | — | |
-| artifacts/pro-se-navigator/components/TypingIndicator.tsx | — | |
-| artifacts/pro-se-navigator/components/UserMessage.tsx | — | |
+| artifacts/pro-se-navigator/components/TypingIndicator.tsx | 10 | reviewed: staggered loops cleaned up — sound |
+| artifacts/pro-se-navigator/components/UserMessage.tsx | 10 | reviewed: sound |
 | artifacts/pro-se-navigator/components/VerifiedTag.tsx | — | |
 | artifacts/pro-se-navigator/constants/colors.ts | — | |
 | artifacts/pro-se-navigator/contexts/AuthContext.tsx | 8 | FIXED: getSession rejection left isLoading=true forever (stuck splash); PKCE Google flow reviewed sound |
@@ -221,3 +221,10 @@ timeout — a stalled network left the UI spinner hanging forever. Hermes lacks
 AbortSignal.timeout, so added a controller-based timeoutSignal() helper in
 apiBase and wired all five call sites. supabase/documents/rule6/deadlineRules
 reviewed sound. Gates: typecheck clean, 17+34 tests pass.
+
+### Cycle 10 — mobile chat components
+Found: CaseChat re-reversed the message array (and re-derived lastNavId) on
+every render — wasted O(n) work per keystroke and unstable FlatList identity;
+AttachmentSheet carried three dead imports. Fixed both. Eight further chat
+components reviewed sound (animation loops all have cleanup; error paths
+alert the user). Gates: typecheck clean, 17+34 tests pass.

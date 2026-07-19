@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   View,
@@ -141,11 +141,16 @@ export default function CaseChat({ caseId, messages, autoFocusInput }: CaseChatP
   }, []);
 
   // Inverted FlatList — data must be reversed (newest-first in the array).
-  const reversedMessages = [...messages].reverse();
+  // Memoized: re-reversing on every render (each keystroke re-renders the
+  // parent) is wasted work and breaks FlatList's item identity.
+  const reversedMessages = useMemo(() => [...messages].reverse(), [messages]);
 
   // Only the most-recent navigator message gets interactive next-step buttons
   // and the Regenerate/Copy actions. Previous messages are static.
-  const lastNavId = reversedMessages.find((m) => m.role === 'navigator')?.id ?? null;
+  const lastNavId = useMemo(
+    () => reversedMessages.find((m) => m.role === 'navigator')?.id ?? null,
+    [reversedMessages],
+  );
 
   const handleRegenerate = useCallback(() => {
     // Placeholder — AI not connected yet (Phase 6)
