@@ -22,20 +22,26 @@ import { CASE_TYPE_LABELS } from '@/components/CaseCard';
 import { downloadArtifact } from '@/lib/downloadArtifact';
 
 /**
- * The Library — slides in from the profile button. Everything you own, one
- * page: your conversations/cases (Inbox), Artifacts, saved Sources, and
- * Deadlines. Settings lives behind the gear; New+ starts a case; the search
- * pill is pinned at the bottom.
+ * The Library — slides in from the profile button, laid out like the
+ * reference: a stacked list of quick-link rows on top (Artifacts, Sources,
+ * Deadlines), then the Inbox — every conversation/case stacked below.
+ * Tapping a quick-link drills into that collection. Settings behind the gear;
+ * New+ floats; search pinned at the bottom.
  */
 
-type Tab = 'chats' | 'artifacts' | 'sources' | 'deadlines';
+type Section = 'artifacts' | 'sources' | 'deadlines';
 
-const TABS: { key: Tab; label: string; icon: string }[] = [
-  { key: 'chats', label: 'Inbox', icon: 'message-circle' },
+const QUICK_LINKS: { key: Section; label: string; icon: string }[] = [
   { key: 'artifacts', label: 'Artifacts', icon: 'folder' },
   { key: 'sources', label: 'Sources', icon: 'book-open' },
   { key: 'deadlines', label: 'Deadlines', icon: 'clock' },
 ];
+
+const SECTION_TITLE: Record<Section, string> = {
+  artifacts: 'Artifacts',
+  sources: 'Sources',
+  deadlines: 'Deadlines',
+};
 
 function timeAgo(dateStr?: string): string {
   if (!dateStr) return '';
@@ -61,15 +67,22 @@ export default function LibraryScreen() {
     cases, artifacts, sources, deadlines, refresh, setActiveCase, deleteCase,
   } = useCases();
 
-  const initialTab: Tab = (['chats', 'artifacts', 'sources', 'deadlines'] as Tab[]).includes(
-    params.tab as Tab,
+  // A deep-link (?tab=sources) opens straight into that collection.
+  const initialSection: Section | null = (['artifacts', 'sources', 'deadlines'] as Section[]).includes(
+    params.tab as Section,
   )
-    ? (params.tab as Tab)
-    : 'chats';
-  const [tab, setTab] = useState<Tab>(initialTab);
+    ? (params.tab as Section)
+    : null;
+  const [section, setSection] = useState<Section | null>(initialSection);
   const [refreshing, setRefreshing] = useState(false);
 
   const displayName = user?.name || user?.email?.split('@')[0] || 'Your library';
+
+  const counts: Record<Section, number> = {
+    artifacts: artifacts.length,
+    sources: sources.length,
+    deadlines: deadlines.length,
+  };
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -92,6 +105,12 @@ export default function LibraryScreen() {
     [deadlines],
   );
 
+  const goBack = () => {
+    Haptics.selectionAsync();
+    if (section) setSection(null);
+    else router.back();
+  };
+
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       {/* ── Header: gear · name · forward ── */}
@@ -110,10 +129,7 @@ export default function LibraryScreen() {
           {displayName}
         </Text>
         <Pressable
-          onPress={() => {
-            Haptics.selectionAsync();
-            router.back();
-          }}
+          onPress={goBack}
           style={[styles.roundBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
           hitSlop={8}
         >
@@ -121,35 +137,6 @@ export default function LibraryScreen() {
         </Pressable>
       </View>
 
-      {/* ── Section tabs ── */}
-      <View style={styles.tabRow}>
-        {TABS.map((t) => {
-          const active = tab === t.key;
-          return (
-            <Pressable
-              key={t.key}
-              onPress={() => {
-                Haptics.selectionAsync();
-                setTab(t.key);
-              }}
-              style={[
-                styles.tabChip,
-                {
-                  backgroundColor: active ? colors.primaryDim : colors.surface,
-                  borderColor: active ? colors.primary : colors.border,
-                },
-              ]}
-            >
-              <Feather name={t.icon as any} size={13} color={active ? colors.primary : colors.textMuted} />
-              <Text style={[styles.tabLabel, { color: active ? colors.primary : colors.textSecondary }]}>
-                {t.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {/* ── Content ── */}
       <ScrollView
         style={styles.flex}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 150 }]}
@@ -163,97 +150,133 @@ export default function LibraryScreen() {
           />
         }
       >
-        {tab === 'chats' &&
-          (cases.length === 0 ? (
-            <EmptyNote icon="message-circle" text="No conversations yet. Start a session or open a new case." colors={colors} />
-          ) : (
-            cases.map((c) => (
+        {section === null ? (
+          <>
+            {/* ── Quick-links (stacked rows on top) ── */}
+            {QUICK_LINKS.map((q) => (
               <Pressable
-                key={c.id}
-                onPress={() => openCase(c.id)}
-                onLongPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  deleteCase(c.id);
+                key={q.key}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setSection(q.key);
                 }}
-                delayLongPress={600}
-                style={({ pressed }) => [
-                  styles.inboxRow,
-                  { borderBottomColor: colors.border },
-                  pressed && { opacity: 0.7 },
-                ]}
+                style={({ pressed }) => [styles.quickRow, pressed && { opacity: 0.6 }]}
               >
-                <View style={styles.inboxBody}>
-                  <Text style={[styles.inboxTitle, { color: colors.text }]} numberOfLines={1}>
-                    {c.title || 'Untitled case'}
-                  </Text>
-                  <Text style={[styles.inboxMeta, { color: colors.textMuted }]}>
-                    {timeAgo(c.lastMessageAt || c.createdAt)} · {CASE_TYPE_LABELS[c.caseType]}
-                  </Text>
-                </View>
-                <Feather name="chevron-right" size={16} color={colors.textMuted} />
+                <Feather name={q.icon as any} size={19} color={colors.text} style={styles.quickIcon} />
+                <Text style={[styles.quickLabel, { color: colors.text }]}>{q.label}</Text>
+                {counts[q.key] > 0 && (
+                  <Text style={[styles.quickCount, { color: colors.textMuted }]}>{counts[q.key]}</Text>
+                )}
+                <Feather name="chevron-right" size={17} color={colors.textMuted} />
               </Pressable>
-            ))
-          ))}
+            ))}
 
-        {tab === 'artifacts' &&
-          (artifacts.length === 0 ? (
-            <EmptyNote icon="folder" text="Drafted documents will collect here — ready to review and download." colors={colors} />
-          ) : (
-            <View style={styles.cardList}>
-              {artifacts.map((a) => (
-                <ArtifactCard
-                  key={a.id}
-                  artifact={a}
-                  showCaseTitle
-                  onDownload={() => {
-                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                    downloadArtifact(a).catch(() => {});
-                  }}
-                />
-              ))}
-            </View>
-          ))}
+            {/* ── Divider ── */}
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-        {tab === 'sources' &&
-          (sources.length === 0 ? (
-            <EmptyNote icon="book-open" text="Verified authorities you save will appear here." colors={colors} />
-          ) : (
-            <View style={styles.cardList}>
-              {sources.map((s) => (
+            {/* ── Inbox (all chats/cases, stacked) ── */}
+            <Text style={[styles.inboxHeader, { color: colors.text }]}>Inbox</Text>
+            {cases.length === 0 ? (
+              <EmptyNote icon="message-circle" text="No conversations yet. Start a session or open a new case." colors={colors} />
+            ) : (
+              cases.map((c) => (
                 <Pressable
-                  key={s.id}
-                  onPress={() => s.url && Linking.openURL(s.url)}
-                  disabled={!s.url}
+                  key={c.id}
+                  onPress={() => openCase(c.id)}
+                  onLongPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    deleteCase(c.id);
+                  }}
+                  delayLongPress={600}
                   style={({ pressed }) => [
-                    styles.sourceCard,
-                    { backgroundColor: colors.surface, borderColor: colors.border },
-                    pressed && s.url ? { opacity: 0.85 } : null,
+                    styles.inboxRow,
+                    { borderBottomColor: colors.border },
+                    pressed && { opacity: 0.6 },
                   ]}
                 >
-                  <View style={styles.sourceTop}>
-                    <Text style={[styles.sourceCitation, { color: colors.text }]} numberOfLines={2}>
-                      {s.citation}
+                  <View style={styles.inboxBody}>
+                    <Text style={[styles.inboxTitle, { color: colors.text }]} numberOfLines={1}>
+                      {c.title || 'Untitled case'}
                     </Text>
-                    <VerifiedTag status={s.verifiedStatus} label={s.verifiedStatus} />
+                    <Text style={[styles.inboxMeta, { color: colors.textMuted }]}>
+                      {timeAgo(c.lastMessageAt || c.createdAt)} · {CASE_TYPE_LABELS[c.caseType]}
+                    </Text>
                   </View>
-                  <Text style={[styles.sourceCase, { color: colors.textMuted }]} numberOfLines={1}>
-                    {s.caseTitle}
-                  </Text>
+                  <Feather name="chevron-right" size={16} color={colors.textMuted} />
                 </Pressable>
-              ))}
-            </View>
-          ))}
+              ))
+            )}
+          </>
+        ) : (
+          <>
+            {/* ── Collection drill-down ── */}
+            <Pressable onPress={goBack} style={styles.backRow} hitSlop={8}>
+              <Feather name="chevron-left" size={18} color={colors.primary} />
+              <Text style={[styles.backText, { color: colors.primary }]}>Library</Text>
+            </Pressable>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>{SECTION_TITLE[section]}</Text>
 
-        {tab === 'deadlines' &&
-          (sortedDeadlines.length === 0 ? (
-            <EmptyNote icon="clock" text="Computed deadlines appear here as your cases develop." colors={colors} />
-          ) : (
-            <View style={styles.cardList}>
-              {sortedDeadlines.map((d) => (
-                <DeadlineCard key={d.id} deadline={d} showCaseTitle />
+            {section === 'artifacts' &&
+              (artifacts.length === 0 ? (
+                <EmptyNote icon="folder" text="Drafted documents will collect here — ready to review and download." colors={colors} />
+              ) : (
+                <View style={styles.cardList}>
+                  {artifacts.map((a) => (
+                    <ArtifactCard
+                      key={a.id}
+                      artifact={a}
+                      showCaseTitle
+                      onDownload={() => {
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                        downloadArtifact(a).catch(() => {});
+                      }}
+                    />
+                  ))}
+                </View>
               ))}
-            </View>
-          ))}
+
+            {section === 'sources' &&
+              (sources.length === 0 ? (
+                <EmptyNote icon="book-open" text="Verified authorities you save will appear here." colors={colors} />
+              ) : (
+                <View style={styles.cardList}>
+                  {sources.map((s) => (
+                    <Pressable
+                      key={s.id}
+                      onPress={() => s.url && Linking.openURL(s.url)}
+                      disabled={!s.url}
+                      style={({ pressed }) => [
+                        styles.sourceCard,
+                        { backgroundColor: colors.surface, borderColor: colors.border },
+                        pressed && s.url ? { opacity: 0.85 } : null,
+                      ]}
+                    >
+                      <View style={styles.sourceTop}>
+                        <Text style={[styles.sourceCitation, { color: colors.text }]} numberOfLines={2}>
+                          {s.citation}
+                        </Text>
+                        <VerifiedTag status={s.verifiedStatus} label={s.verifiedStatus} />
+                      </View>
+                      <Text style={[styles.sourceCase, { color: colors.textMuted }]} numberOfLines={1}>
+                        {s.caseTitle}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ))}
+
+            {section === 'deadlines' &&
+              (sortedDeadlines.length === 0 ? (
+                <EmptyNote icon="clock" text="Computed deadlines appear here as your cases develop." colors={colors} />
+              ) : (
+                <View style={styles.cardList}>
+                  {sortedDeadlines.map((d) => (
+                    <DeadlineCard key={d.id} deadline={d} showCaseTitle />
+                  ))}
+                </View>
+              ))}
+          </>
+        )}
       </ScrollView>
 
       {/* ── Floating New+ ── */}
@@ -332,36 +355,49 @@ const styles = StyleSheet.create({
     fontFamily: 'DMSans_600SemiBold',
     letterSpacing: -0.2,
   },
-  tabRow: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 14,
-    paddingBottom: 10,
-  },
-  tabChip: {
+  content: { paddingHorizontal: 20, paddingTop: 8 },
+
+  // Quick-links
+  quickRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    borderRadius: 16,
-    borderWidth: 1,
-    paddingHorizontal: 11,
-    paddingVertical: 7,
+    gap: 14,
+    paddingVertical: 15,
   },
-  tabLabel: { fontSize: 12.5, fontFamily: 'DMSans_500Medium' },
-  content: { paddingHorizontal: 16, paddingTop: 6 },
+  quickIcon: { width: 22, textAlign: 'center' },
+  quickLabel: { flex: 1, fontSize: 17, fontFamily: 'DMSans_600SemiBold', letterSpacing: -0.2 },
+  quickCount: { fontSize: 14, fontFamily: 'DMSans_400Regular' },
+  divider: { height: StyleSheet.hairlineWidth, marginVertical: 12 },
 
+  // Inbox
+  inboxHeader: {
+    fontSize: 22,
+    fontFamily: 'DMSans_700Bold',
+    letterSpacing: -0.4,
+    marginBottom: 6,
+    marginTop: 2,
+  },
   inboxRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingVertical: 14,
+    paddingVertical: 15,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   inboxBody: { flex: 1, gap: 3 },
-  inboxTitle: { fontSize: 15.5, fontFamily: 'DMSans_500Medium' },
-  inboxMeta: { fontSize: 12, fontFamily: 'DMSans_400Regular' },
+  inboxTitle: { fontSize: 16, fontFamily: 'DMSans_600SemiBold', letterSpacing: -0.2 },
+  inboxMeta: { fontSize: 12.5, fontFamily: 'DMSans_400Regular' },
 
-  cardList: { gap: 10, paddingTop: 6 },
+  // Collection drill-down
+  backRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 8 },
+  backText: { fontSize: 15, fontFamily: 'DMSans_500Medium' },
+  sectionTitle: {
+    fontSize: 24,
+    fontFamily: 'DMSans_700Bold',
+    letterSpacing: -0.5,
+    marginBottom: 12,
+  },
+  cardList: { gap: 10 },
   sourceCard: {
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
@@ -380,7 +416,7 @@ const styles = StyleSheet.create({
   emptyNote: {
     alignItems: 'center',
     gap: 10,
-    paddingTop: 70,
+    paddingTop: 60,
     paddingHorizontal: 40,
   },
   emptyNoteText: {
