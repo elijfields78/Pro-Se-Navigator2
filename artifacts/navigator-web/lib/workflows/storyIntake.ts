@@ -77,9 +77,13 @@ function parseExtraction(raw: string): StoryExtraction {
 }
 
 export async function runStoryIntake(story: string, llm: LlmCall): Promise<IntakeResult> {
-  const extraction = parseExtraction(await llm(EXTRACT_SYSTEM, story));
-  const narrative = (await llm(NARRATIVE_SYSTEM, story)).trim();
-  return { extraction, narrative, questions: gapFillerQuestions(extraction) };
+  // Extraction and narrative are independent — run them in parallel.
+  const [rawExtraction, rawNarrative] = await Promise.all([
+    llm(EXTRACT_SYSTEM, story),
+    llm(NARRATIVE_SYSTEM, story),
+  ]);
+  const extraction = parseExtraction(rawExtraction);
+  return { extraction, narrative: rawNarrative.trim(), questions: gapFillerQuestions(extraction) };
 }
 
 /** Default Anthropic-backed caller (strongest available model — intake quality
@@ -87,7 +91,7 @@ export async function runStoryIntake(story: string, llm: LlmCall): Promise<Intak
 export function anthropicLlm(): LlmCall {
   return async (system, user) => {
     const { default: Anthropic } = await import('@anthropic-ai/sdk');
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 60_000 });
     const msg = await client.messages.create({
       model: 'claude-sonnet-5',
       max_tokens: 1500,

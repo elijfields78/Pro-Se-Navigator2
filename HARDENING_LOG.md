@@ -47,26 +47,26 @@ after cycles touching navigator-web app code, and at the end.
 | artifacts/navigator-web/lib/db/cases.ts | — | |
 | artifacts/navigator-web/lib/db/server.ts | — | |
 | artifacts/navigator-web/lib/guardrails/index.ts | — | |
-| artifacts/navigator-web/lib/memory/index.ts | — | |
-| artifacts/navigator-web/lib/memory/supabaseStore.ts | — | |
-| artifacts/navigator-web/lib/metaloop/index.ts | — | |
-| artifacts/navigator-web/lib/subagents/index.ts | — | |
+| artifacts/navigator-web/lib/memory/index.ts | 5 | reviewed: structuredClone snapshots, explicit-setter locks — sound |
+| artifacts/navigator-web/lib/memory/supabaseStore.ts | 5 | FIXED: all four query errors surfaced (silent-empty tone profile weakened guardrails) |
+| artifacts/navigator-web/lib/metaloop/index.ts | 5 | reviewed: halt/resume semantics fully test-covered — sound |
+| artifacts/navigator-web/lib/subagents/index.ts | 5 | FIXED: settled promises pruned from running map (long-lived leak); model routing reviewed |
 | artifacts/navigator-web/lib/supabaseBrowser.ts | — | |
 | artifacts/navigator-web/lib/verification/courtlistener.ts | 4 | FIXED: 30s timeout on lookup; pure mapper already tested |
 | artifacts/navigator-web/lib/verification/extract.ts | 4 | reviewed: conservative patterns confirmed by 2 new edge tests (multi-§, bare CFR, no bare-Rule false positives) |
 | artifacts/navigator-web/lib/verification/index.ts | 4 | reviewed: budget bound, honest fallbacks, gate semantics tested — sound |
 | artifacts/navigator-web/lib/verification/perplexity.ts | 4 | FIXED: 30s timeout on confirm; strict verdict parser tested |
 | artifacts/navigator-web/lib/verification/types.ts | 4 | reviewed: types only — sound |
-| artifacts/navigator-web/lib/workflows/coldStart.ts | — | |
-| artifacts/navigator-web/lib/workflows/machine.ts | — | |
-| artifacts/navigator-web/lib/workflows/reactive.ts | — | |
-| artifacts/navigator-web/lib/workflows/storyIntake.ts | — | |
+| artifacts/navigator-web/lib/workflows/coldStart.ts | 5 | reviewed: gates test-covered incl. HOLD/commitment; handoff validates — sound |
+| artifacts/navigator-web/lib/workflows/machine.ts | 5 | reviewed: gate-refusal + fastForward covered — sound |
+| artifacts/navigator-web/lib/workflows/reactive.ts | 5 | reviewed: deterministic router, chips 4-6 asserted — sound |
+| artifacts/navigator-web/lib/workflows/storyIntake.ts | 5 | FIXED: 60s Anthropic timeout; extraction+narrative parallelized (2x faster intake) |
 | artifacts/navigator-web/postcss.config.mjs | — | |
-| artifacts/navigator-web/tests/coldstart.e2e.test.ts | — | |
-| artifacts/navigator-web/tests/guardrails.test.ts | — | |
-| artifacts/navigator-web/tests/metaloop-subagents.test.ts | — | |
+| artifacts/navigator-web/tests/coldstart.e2e.test.ts | 5 | reviewed: mechanics-only fixture, fictional parties |
+| artifacts/navigator-web/tests/guardrails.test.ts | 5 | reviewed: all seven checks covered |
+| artifacts/navigator-web/tests/metaloop-subagents.test.ts | 5 | reviewed as part of cycle 5 verification |
 | artifacts/navigator-web/tests/verification.test.ts | 4 | extended: +2 extraction edge tests (34 total web tests) |
-| artifacts/navigator-web/tests/wiring.test.ts | — | |
+| artifacts/navigator-web/tests/wiring.test.ts | 5 | reviewed: leapfrog rejection covered |
 | artifacts/pro-se-navigator/app/(auth)/_layout.tsx | — | |
 | artifacts/pro-se-navigator/app/(auth)/login.tsx | — | |
 | artifacts/pro-se-navigator/app/(auth)/register.tsx | — | |
@@ -185,3 +185,10 @@ reviewed; tests extended). Found: same missing-timeout class as api-server on
 both adapters. Fixed with 30s AbortSignal timeouts + clear errors. Added 2
 extraction edge tests (multi-section §§, bare C.F.R., large-input stability,
 no bare-Rule false positives). Gates: typecheck clean, 17+34 tests pass.
+
+### Cycle 5 — navigator-web engines
+Files: workflows/storyIntake.ts, subagents/index.ts, memory/supabaseStore.ts
+(+metaloop, machine, coldStart, reactive, memory/index, all engine tests reviewed).
+Found: intake LLM calls sequential + untimed; orchestrator retained settled
+promises forever; memory store silently swallowed tone/events/assets query
+errors (guardrail-weakening). Fixed all three. Gates: typecheck clean, 17+34 pass.

@@ -68,6 +68,9 @@ export class SubagentOrchestrator {
         job.error = err instanceof Error ? err.message : String(err);
       } finally {
         job.finishedAt = new Date().toISOString();
+        // Settled promises are dropped so a long-lived orchestrator doesn't
+        // accumulate them; job records (with results) stay in `jobs`.
+        this.running.delete(id);
       }
     })();
     this.running.set(id, p);

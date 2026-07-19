@@ -25,7 +25,13 @@ export class SupabaseMemoryStore implements MemoryStore {
       this.db.from('nav_memory_events').select('kind, content, created_at').eq('case_id', caseId).order('created_at'),
       this.db.from('nav_assets').select('id, title, kind, storage_path, created_at').eq('case_id', caseId).order('created_at'),
     ]);
+    // Surface every failure: a silently-empty tone profile would weaken the
+    // tone/banned-vocabulary guardrails, and silently-missing events would
+    // hide corrections. Guardrail inputs must be trustworthy or absent loudly.
     if (caseRes.error) throw caseRes.error;
+    if (toneRes.error) throw toneRes.error;
+    if (eventsRes.error) throw eventsRes.error;
+    if (assetsRes.error) throw assetsRes.error;
 
     const events: MemoryEvent[] = (eventsRes.data ?? []).map((e) => ({
       kind: e.kind,
