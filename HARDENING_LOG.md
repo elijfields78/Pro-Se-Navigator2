@@ -52,11 +52,11 @@ after cycles touching navigator-web app code, and at the end.
 | artifacts/navigator-web/lib/metaloop/index.ts | — | |
 | artifacts/navigator-web/lib/subagents/index.ts | — | |
 | artifacts/navigator-web/lib/supabaseBrowser.ts | — | |
-| artifacts/navigator-web/lib/verification/courtlistener.ts | — | |
-| artifacts/navigator-web/lib/verification/extract.ts | — | |
-| artifacts/navigator-web/lib/verification/index.ts | — | |
-| artifacts/navigator-web/lib/verification/perplexity.ts | — | |
-| artifacts/navigator-web/lib/verification/types.ts | — | |
+| artifacts/navigator-web/lib/verification/courtlistener.ts | 4 | FIXED: 30s timeout on lookup; pure mapper already tested |
+| artifacts/navigator-web/lib/verification/extract.ts | 4 | reviewed: conservative patterns confirmed by 2 new edge tests (multi-§, bare CFR, no bare-Rule false positives) |
+| artifacts/navigator-web/lib/verification/index.ts | 4 | reviewed: budget bound, honest fallbacks, gate semantics tested — sound |
+| artifacts/navigator-web/lib/verification/perplexity.ts | 4 | FIXED: 30s timeout on confirm; strict verdict parser tested |
+| artifacts/navigator-web/lib/verification/types.ts | 4 | reviewed: types only — sound |
 | artifacts/navigator-web/lib/workflows/coldStart.ts | — | |
 | artifacts/navigator-web/lib/workflows/machine.ts | — | |
 | artifacts/navigator-web/lib/workflows/reactive.ts | — | |
@@ -65,7 +65,7 @@ after cycles touching navigator-web app code, and at the end.
 | artifacts/navigator-web/tests/coldstart.e2e.test.ts | — | |
 | artifacts/navigator-web/tests/guardrails.test.ts | — | |
 | artifacts/navigator-web/tests/metaloop-subagents.test.ts | — | |
-| artifacts/navigator-web/tests/verification.test.ts | — | |
+| artifacts/navigator-web/tests/verification.test.ts | 4 | extended: +2 extraction edge tests (34 total web tests) |
 | artifacts/navigator-web/tests/wiring.test.ts | — | |
 | artifacts/pro-se-navigator/app/(auth)/_layout.tsx | — | |
 | artifacts/pro-se-navigator/app/(auth)/login.tsx | — | |
@@ -178,3 +178,10 @@ statement/connection timeouts, unbounded pool. Fixed: error handler, max 10,
 10s connect / 15s statement / 30s idle timeouts.
 Reviewed-sound: parameterized retrieval SQL, log redaction, PORT validation.
 Gates: typecheck clean, 17+32 tests pass.
+
+### Cycle 4 — navigator-web verification service
+Files: lib/verification/{courtlistener,perplexity}.ts (+extract, index, types
+reviewed; tests extended). Found: same missing-timeout class as api-server on
+both adapters. Fixed with 30s AbortSignal timeouts + clear errors. Added 2
+extraction edge tests (multi-section §§, bare C.F.R., large-input stability,
+no bare-Rule false positives). Gates: typecheck clean, 17+34 tests pass.

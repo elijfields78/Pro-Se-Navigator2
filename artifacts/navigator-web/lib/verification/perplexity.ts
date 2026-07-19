@@ -51,20 +51,30 @@ export async function confirmCaseCitation(
     ? `Citation: ${params.citation}. Reported case name: ${params.caseName}.`
     : `Citation: ${params.citation}.`;
 
-  const resp = await fetchImpl(PERPLEXITY_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: process.env.PERPLEXITY_MODEL ?? 'sonar-pro',
-      messages: [
-        { role: 'system', content: CONFIRM_SYSTEM_PROMPT },
-        { role: 'user', content: query },
-      ],
-    }),
-  });
+  let resp: Response;
+  try {
+    resp = await fetchImpl(PERPLEXITY_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: process.env.PERPLEXITY_MODEL ?? 'sonar-pro',
+        messages: [
+          { role: 'system', content: CONFIRM_SYSTEM_PROMPT },
+          { role: 'user', content: query },
+        ],
+      }),
+      // Bounded: verification fans out to several confirms per document.
+      signal: AbortSignal.timeout(30_000),
+    });
+  } catch (err) {
+    if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
+      throw new Error('Perplexity confirm timed out.');
+    }
+    throw err;
+  }
 
   if (!resp.ok) {
     const detail = await resp.text().catch(() => '');

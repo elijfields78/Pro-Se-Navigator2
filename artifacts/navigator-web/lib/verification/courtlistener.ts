@@ -88,14 +88,24 @@ export async function lookupCaseCitations(
     throw new Error('COURTLISTENER_API_TOKEN is not set; case verification is disabled.');
   }
 
-  const resp = await fetchImpl(CITATION_LOOKUP_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Token ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ text: text.slice(0, 64000) }),
-  });
+  let resp: Response;
+  try {
+    resp = await fetchImpl(CITATION_LOOKUP_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Token ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ text: text.slice(0, 64000) }),
+      // Bound the lookup — a hung upstream must not pin the export flow.
+      signal: AbortSignal.timeout(30_000),
+    });
+  } catch (err) {
+    if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
+      throw new Error('CourtListener lookup timed out.');
+    }
+    throw err;
+  }
 
   if (!resp.ok) {
     const detail = await resp.text().catch(() => '');

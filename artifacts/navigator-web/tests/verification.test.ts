@@ -160,3 +160,22 @@ test('report totals, exportability, and user-confirmation stamps', () => {
   const exportable = buildVerificationReport([cite('A', 'verified')], new Map());
   assert.equal(exportable.exportable, true);
 });
+
+// ── Hardening cycle 4: extraction edge cases ────────────────────────────────
+
+test('multi-section citations capture the first section; bare C.F.R. matches without §', () => {
+  const found = extractStatutoryCitations(
+    'Removal is governed by 28 U.S.C. §§ 1441, 1446. See also 12 C.F.R. 1026.',
+  );
+  const citations = found.map((f) => f.citation);
+  assert.ok(citations.includes('28 U.S.C. § 1441'));
+  assert.ok(citations.includes('12 C.F.R. § 1026'));
+});
+
+test('extraction is stable on large inputs and does not match bare rule numbers', () => {
+  const big = 'The parties met and conferred. '.repeat(2000) + 'Under Rule 26(f), they must confer.';
+  const found = extractStatutoryCitations(big);
+  // Bare "Rule 26(f)" (no Fed. R. Civ. P. prefix) is intentionally NOT matched —
+  // conservative extraction avoids false positives that would block export.
+  assert.equal(found.length, 0);
+});
