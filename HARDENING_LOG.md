@@ -88,7 +88,7 @@ after cycles touching navigator-web app code, and at the end.
 | artifacts/pro-se-navigator/app/search.tsx | 12 | reviewed: client-side filter, no async failure surface — sound |
 | artifacts/pro-se-navigator/app/settings.tsx | 12 | reviewed: theme toggle, destructive confirm — sound |
 | artifacts/pro-se-navigator/app/usage.tsx | 12 | reviewed: static plan display, no async — sound |
-| artifacts/pro-se-navigator/babel.config.js | — | |
+| artifacts/pro-se-navigator/babel.config.js | 13 | reviewed: preset only — sound |
 | artifacts/pro-se-navigator/components/AIMessage.tsx | 10 | reviewed: typewriter cleanup on unmount, bounded replay cache — sound |
 | artifacts/pro-se-navigator/components/ActivityRow.tsx | 10 | reviewed: pulse loop cleanup — sound |
 | artifacts/pro-se-navigator/components/ArtifactCard.tsx | 11 | deduped timeAgo; theme-aware kinds, download btn — sound |
@@ -108,17 +108,17 @@ after cycles touching navigator-web app code, and at the end.
 | artifacts/pro-se-navigator/components/TypingIndicator.tsx | 10 | reviewed: staggered loops cleaned up — sound |
 | artifacts/pro-se-navigator/components/UserMessage.tsx | 10 | reviewed: sound |
 | artifacts/pro-se-navigator/components/VerifiedTag.tsx | 11 | reviewed: theme-aware states — sound |
-| artifacts/pro-se-navigator/constants/colors.ts | — | |
+| artifacts/pro-se-navigator/constants/colors.ts | 13 | reviewed: dual palettes complete — sound |
 | artifacts/pro-se-navigator/contexts/AuthContext.tsx | 8 | FIXED: getSession rejection left isLoading=true forever (stuck splash); PKCE Google flow reviewed sound |
 | artifacts/pro-se-navigator/contexts/CasesContext.tsx | 8 | FIXED: load-epoch guard — sign-out during in-flight load repopulated prior user data (privacy). Known-accepted: snapshot rollbacks in sendMessage may clobber concurrent optimistic writes (single-user app, low risk) |
 | artifacts/pro-se-navigator/contexts/ThemeContext.tsx | 8 | reviewed: persisted pref, system coercion, safe default — sound |
 | artifacts/pro-se-navigator/contexts/types.ts | 8 | reviewed: types only, discriminated pendingFollowUp union — sound |
-| artifacts/pro-se-navigator/data/intakeScripts.ts | — | |
-| artifacts/pro-se-navigator/hooks/useColorScheme.ts | — | |
-| artifacts/pro-se-navigator/hooks/useColors.ts | — | |
-| artifacts/pro-se-navigator/hooks/useDictation.ts | — | |
-| artifacts/pro-se-navigator/hooks/useGlobalSearch.ts | — | |
-| artifacts/pro-se-navigator/hooks/usePlan.ts | — | |
+| artifacts/pro-se-navigator/data/intakeScripts.ts | 13 | reviewed: static script data consumed by tested state machine — sound |
+| artifacts/pro-se-navigator/hooks/useColorScheme.ts | 13 | reviewed: context-backed — sound |
+| artifacts/pro-se-navigator/hooks/useColors.ts | 13 | reviewed: palette selection — sound |
+| artifacts/pro-se-navigator/hooks/useDictation.ts | 13 | reviewed: web speech w/ silence auto-restart, native supported:false, unmount cleanup — sound |
+| artifacts/pro-se-navigator/hooks/useGlobalSearch.ts | 13 | reviewed: memoized client-side filter, 20-msg cap — sound |
+| artifacts/pro-se-navigator/hooks/usePlan.ts | 13 | reviewed: static free-tier stub, clearly marked — sound |
 | artifacts/pro-se-navigator/lib/aiClient.ts | 9 | FIXED: all 4 endpoints now time-bounded (180s chat/draft, 120s research/verify) — no more infinite spinners |
 | artifacts/pro-se-navigator/lib/apiBase.ts | 9 | ADDED timeoutSignal() — Hermes-safe request timeout helper; URL fallback reviewed |
 | artifacts/pro-se-navigator/lib/deadlineRules.ts | 9 | reviewed: covered by tests — sound |
@@ -127,12 +127,12 @@ after cycles touching navigator-web app code, and at the end.
 | artifacts/pro-se-navigator/lib/retrievalClient.ts | 9 | FIXED: 30s timeout on legal-library search |
 | artifacts/pro-se-navigator/lib/rule6.ts | 9 | reviewed: deterministic, covered by 17 tests — sound |
 | artifacts/pro-se-navigator/lib/supabase.ts | 9 | reviewed: SecureStore adapter, PKCE, env warning — sound |
-| artifacts/pro-se-navigator/metro.config.js | — | |
-| artifacts/pro-se-navigator/scripts/build.js | — | |
-| artifacts/pro-se-navigator/server/serve.js | — | |
-| artifacts/pro-se-navigator/tests/deadlineRules.test.ts | — | |
-| artifacts/pro-se-navigator/tests/rule6.test.ts | — | |
-| artifacts/pro-se-navigator/utils/autoTitle.ts | — | |
+| artifacts/pro-se-navigator/metro.config.js | 13 | reviewed lightly: standard config |
+| artifacts/pro-se-navigator/scripts/build.js | 13 | reviewed lightly: expo export wrapper |
+| artifacts/pro-se-navigator/server/serve.js | 13 | reviewed lightly: static web serve wrapper |
+| artifacts/pro-se-navigator/tests/deadlineRules.test.ts | 13 | reviewed: rule lookup covered |
+| artifacts/pro-se-navigator/tests/rule6.test.ts | 13 | reviewed: deterministic deadline math covered |
+| artifacts/pro-se-navigator/utils/autoTitle.ts | 13 | TESTED: +4 tests (composition, fallbacks, empty-input safety); logic sound |
 | lib/api-client-react/src/custom-fetch.ts | — | |
 | lib/api-client-react/src/generated/api.schemas.ts | — | |
 | lib/api-client-react/src/generated/api.ts | — | |
@@ -242,3 +242,9 @@ Library already in the stack) — fixed with a param-tracking effect. All 20
 other screens reviewed: auth screens have proper loading/error paths; legacy
 (tabs) routes are unreachable from the new IA but intact and harmless (noted
 for future deletion as a product decision). Gates: typecheck clean, 17+34 pass.
+
+### Cycle 13 — mobile data/hooks/config + coverage
+Added 4 autoTitle tests (21 mobile tests total) — the title generator names
+every case in the UI and was untested; verified composition, fallbacks, and
+empty-input safety. Hooks (dictation, global search, plan, colors), intake
+scripts, and build configs reviewed sound. Gates: typecheck clean, 21+34 pass.
