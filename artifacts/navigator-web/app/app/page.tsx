@@ -289,6 +289,9 @@ export default function AppPage() {
             if (!created.ok) throw new Error('Could not create your case. Are you signed in?');
             const { case: c } = await created.json();
             caseId = c.id as string;
+            // Bind the UI to the new case BEFORE intake runs — if intake fails,
+            // the retry must reuse this case, not silently create another one.
+            await refreshCase(caseId);
           }
           await runIntake(caseId!);
         } else {

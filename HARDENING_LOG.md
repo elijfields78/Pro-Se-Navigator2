@@ -41,9 +41,9 @@ after cycles touching navigator-web app code, and at the end.
 | artifacts/navigator-web/app/api/cases/[id]/route.ts | 6 | reviewed: sound |
 | artifacts/navigator-web/app/api/cases/route.ts | 6 | reviewed: auth + toErrorResponse — sound |
 | artifacts/navigator-web/app/api/chat/route.ts | 6 | FIXED: message shape/role validation, 8k/message + 30-message caps (token abuse) |
-| artifacts/navigator-web/app/app/page.tsx | — | |
-| artifacts/navigator-web/app/layout.tsx | — | |
-| artifacts/navigator-web/app/page.tsx | — | |
+| artifacts/navigator-web/app/app/page.tsx | 7 | FIXED: intake failure after case creation caused duplicate case on retry (UI now binds to case pre-intake) |
+| artifacts/navigator-web/app/layout.tsx | 7 | reviewed: static shell — sound |
+| artifacts/navigator-web/app/page.tsx | 7 | reviewed: static landing — sound |
 | artifacts/navigator-web/lib/db/cases.ts | 6 | FIXED: orphan cleanup when phase-state insert fails; title capped 120 |
 | artifacts/navigator-web/lib/db/server.ts | 6 | FIXED: 500s no longer leak internal error text (logged server-side) |
 | artifacts/navigator-web/lib/guardrails/index.ts | — | |
@@ -61,7 +61,7 @@ after cycles touching navigator-web app code, and at the end.
 | artifacts/navigator-web/lib/workflows/machine.ts | 5 | reviewed: gate-refusal + fastForward covered — sound |
 | artifacts/navigator-web/lib/workflows/reactive.ts | 5 | reviewed: deterministic router, chips 4-6 asserted — sound |
 | artifacts/navigator-web/lib/workflows/storyIntake.ts | 5 | FIXED: 60s Anthropic timeout; extraction+narrative parallelized (2x faster intake) |
-| artifacts/navigator-web/postcss.config.mjs | — | |
+| artifacts/navigator-web/postcss.config.mjs | 7 | reviewed: config only |
 | artifacts/navigator-web/tests/coldstart.e2e.test.ts | 5 | reviewed: mechanics-only fixture, fictional parties |
 | artifacts/navigator-web/tests/guardrails.test.ts | 5 | reviewed: all seven checks covered |
 | artifacts/navigator-web/tests/metaloop-subagents.test.ts | 5 | reviewed as part of cycle 5 verification |
@@ -200,3 +200,9 @@ unreadable); intake story and title uncapped; 500 responses leaked internal
 error messages (table/constraint text). Fixed all. Reviewed-sound: remaining
 case routes, supabaseBrowser. Gates: typecheck clean, 34 web tests pass,
 production build clean.
+
+### Cycle 7 — navigator-web pages
+Found: duplicate-case bug — first-message intake failure left caseInfo unset,
+so the retry created a second case. Fixed: refreshCase(caseId) runs right
+after creation, before intake. Layout/landing reviewed sound.
+Gates: typecheck clean, 34 tests pass.
