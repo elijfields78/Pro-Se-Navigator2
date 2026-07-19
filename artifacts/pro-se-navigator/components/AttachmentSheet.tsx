@@ -138,6 +138,30 @@ export default function AttachmentSheet({ visible, onClose, onAttach }: Attachme
     }
   };
 
+  // Scan: capture a document with the camera. On web this opens the file/
+  // camera capture flow; on device it's a full-frame camera shot. Stored as
+  // a 'camera' attachment (same pipeline), named as a scan.
+  const handleScan = async () => {
+    onClose();
+    const ok = await requestMediaPermission('camera');
+    if (!ok) return;
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      quality: 1,
+    });
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      onAttach({
+        type: 'camera',
+        uri: asset.uri,
+        name: `scan_${Date.now()}.jpg`,
+        mimeType: asset.mimeType ?? 'image/jpeg',
+        size: asset.fileSize,
+      });
+    }
+  };
+
   const handleFile = async () => {
     if (!plan.canUploadFile) return;
     onClose();
@@ -201,7 +225,7 @@ export default function AttachmentSheet({ visible, onClose, onAttach }: Attachme
           </Pressable>
         </View>
 
-        {/* Tiles */}
+        {/* Tiles — Image · Camera · File · Scan */}
         <View style={styles.tiles}>
           <OptionTile icon="image" label="Image" onPress={handleImage} />
           <OptionTile icon="camera" label="Camera" onPress={handleCamera} />
@@ -212,6 +236,7 @@ export default function AttachmentSheet({ visible, onClose, onAttach }: Attachme
             lockedLabel="Pro"
             onPress={handleFile}
           />
+          <OptionTile icon="maximize" label="Scan" onPress={handleScan} />
         </View>
 
         {/* Upload counter for free plan */}

@@ -54,9 +54,11 @@ interface ArtifactCardProps {
   showCaseTitle?: boolean;
   onPress?: () => void;
   onDelete?: () => void;
+  /** Shows a download button — web saves a file, native opens the share sheet. */
+  onDownload?: () => void;
 }
 
-export default function ArtifactCard({ artifact, showCaseTitle, onPress, onDelete }: ArtifactCardProps) {
+export default function ArtifactCard({ artifact, showCaseTitle, onPress, onDelete, onDownload }: ArtifactCardProps) {
   const colors = useColors();
   const kc = kindColors(artifact.kind, colors);
 
@@ -104,13 +106,23 @@ export default function ArtifactCard({ artifact, showCaseTitle, onPress, onDelet
         </Text>
       </View>
 
-      {/* Kind badge */}
+      {/* Kind badge + download */}
       <View style={styles.meta}>
         <View style={[styles.badge, { backgroundColor: kc.badgeBg }]}>
           <Text style={[styles.badgeText, { color: kc.badgeText }]}>
             {KIND_LABELS[artifact.kind]}
           </Text>
         </View>
+        {onDownload && (
+          <Pressable
+            onPress={onDownload}
+            hitSlop={8}
+            style={({ pressed }) => [styles.downloadBtn, pressed && { opacity: 0.6 }]}
+          >
+            <Feather name="download" size={13} color={colors.primary} />
+            <Text style={[styles.downloadText, { color: colors.primary }]}>Download</Text>
+          </Pressable>
+        )}
       </View>
 
       {/* Content preview */}
@@ -184,6 +196,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  downloadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginLeft: 'auto',
+    paddingVertical: 2,
+  },
+  downloadText: {
+    fontSize: 12,
+    fontFamily: 'Inter_500Medium',
   },
   badge: {
     paddingHorizontal: 8,

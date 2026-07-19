@@ -34,9 +34,9 @@ const ThemeContext = createContext<ThemeContextValue>({
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  // Default to dark until the stored preference loads, so the first paint
-  // matches the product's dark-first art direction.
-  const [preference, setPreferenceState] = useState<ThemePreference>('dark');
+  // Default to light: the redesigned identity is ivory-first (teal accent),
+  // with Counsel Dark available from Settings → Appearance.
+  const [preference, setPreferenceState] = useState<ThemePreference>('light');
   const system = useSystemColorScheme();
 
   // Load the saved preference once on mount. A previously stored 'system'
@@ -50,7 +50,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         if (stored === 'light' || stored === 'dark') {
           setPreferenceState(stored);
         } else if (stored === 'system') {
-          setPreferenceState('dark');
+          setPreferenceState('light');
         }
       })
       .catch(() => {

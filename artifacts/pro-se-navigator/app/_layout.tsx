@@ -39,7 +39,8 @@ function AuthGate() {
     if (!user && !inAuth) {
       router.replace('/(auth)/login');
     } else if (user && inAuth) {
-      router.replace('/(tabs)/cases');
+      // The app opens straight into the general chat.
+      router.replace('/home');
     }
   }, [user, isLoading, segments]);
 
@@ -51,6 +52,11 @@ function RootLayoutNav() {
     <>
       <AuthGate />
       <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="home" />
+        <Stack.Screen
+          name="library"
+          options={{ animation: 'slide_from_left', gestureEnabled: true }}
+        />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="(auth)" />
         <Stack.Screen

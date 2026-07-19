@@ -23,11 +23,11 @@ const colors = {
     border: '#EAE8E1',
     borderStrong: '#DBD9D0',
 
-    // Brand
-    primary: '#0F6E56',
-    primaryGuide: '#1D9E75',
-    primaryGlow: 'rgba(15,110,86,0.14)',
-    primaryDim: 'rgba(15,110,86,0.07)',
+    // Brand — teal (ivory + teal identity)
+    primary: '#0D9488',
+    primaryGuide: '#14B8A6',
+    primaryGlow: 'rgba(13,148,136,0.14)',
+    primaryDim: 'rgba(13,148,136,0.07)',
 
     // CTA
     amber: '#E8A33D',
@@ -35,24 +35,24 @@ const colors = {
     amberGlow: 'rgba(232,163,61,0.25)',
 
     // Semantic states
-    verifiedBg: '#E1F5EE',
-    verifiedText: '#0F6E56',
+    verifiedBg: '#DFF3F0',
+    verifiedText: '#0D9488',
     deadlineBg: '#FAEEDA',
     deadlineText: '#854F0B',
 
     // Legacy aliases for scaffold compatibility
-    tint: '#0F6E56',
+    tint: '#0D9488',
     foreground: '#1C1B18',
     card: '#FFFFFF',
     cardForeground: '#1C1B18',
     muted: '#F5F4F0',
     mutedForeground: '#9A988F',
-    accent: '#E1F5EE',
-    accentForeground: '#0F6E56',
+    accent: '#DFF3F0',
+    accentForeground: '#0D9488',
     destructive: '#DC2626',
     destructiveForeground: '#FFFFFF',
     input: '#EAE8E1',
-    primary2: '#0F6E56',
+    primary2: '#0D9488',
     primaryForeground: '#FFFFFF',
     secondary: '#F5F4F0',
     secondaryForeground: '#1C1B18',

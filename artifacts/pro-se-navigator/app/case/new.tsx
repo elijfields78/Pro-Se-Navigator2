@@ -19,16 +19,14 @@ import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 
+// General Civil is intentionally absent: that's what the main chat is for —
+// it detects the situation (including these three) and routes accordingly.
+// The 'general' case type still exists in the engine; it just enters through
+// conversation instead of a menu tile.
 const CASE_TYPES: { type: CaseType; label: string; description: string; icon: string }[] = [
   {
-    type: 'general',
-    label: 'General Civil',
-    description: 'Lawsuits, disputes, court orders',
-    icon: 'file-text',
-  },
-  {
     type: 'fcra',
-    label: 'Credit Report Error',
+    label: 'Credit Dispute',
     description: 'Wrong information on your credit report',
     icon: 'credit-card',
   },

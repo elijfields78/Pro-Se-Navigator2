@@ -15,8 +15,10 @@ import { Feather } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useColors } from '@/hooks/useColors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useDictation } from '@/hooks/useDictation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import { Alert } from 'react-native';
 import AttachmentSheet, { PendingAttachment } from './AttachmentSheet';
 
 interface ChatInputProps {
@@ -82,7 +84,36 @@ export default function ChatInput({
   const [text, setText] = useState('');
   const [sheetOpen, setSheetOpen] = useState(false);
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
-  const [recording, setRecording] = useState(false);
+  const dictation = useDictation();
+  const recording = dictation.listening;
+  const dictationBase = useRef('');
+
+  // Live dictation streams straight into the input while the mic is on.
+  useEffect(() => {
+    if (dictation.listening) {
+      const joiner = dictationBase.current && dictation.transcript ? ' ' : '';
+      setText(dictationBase.current + joiner + dictation.transcript);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dictation.transcript, dictation.listening]);
+
+  const toggleMic = () => {
+    Haptics.selectionAsync();
+    if (dictation.listening) {
+      dictation.stop();
+      return;
+    }
+    if (!dictation.supported) {
+      Alert.alert(
+        'Dictation',
+        'On this device, use the microphone on your keyboard to dictate — it types straight into the message box.',
+      );
+      return;
+    }
+    dictationBase.current = text.trim();
+    dictation.reset();
+    dictation.start();
+  };
 
   const hasContent = text.trim().length > 0 || attachments.length > 0;
 
@@ -136,6 +167,7 @@ export default function ChatInput({
 
   const handleSend = () => {
     if ((!text.trim() && attachments.length === 0) || disabled) return;
+    if (dictation.listening) dictation.stop();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onSend(text.trim(), attachments.length > 0 ? attachments : undefined);
     setText('');
@@ -268,16 +300,14 @@ export default function ChatInput({
                 onBlur={handleBlur}
               />
 
-              {/* Mic / waveform */}
+              {/* Mic / waveform — live dictation */}
               <Pressable
                 style={({ pressed }) => [
                   styles.iconBtn,
                   pressed && { backgroundColor: colors.surfaceOffset },
+                  recording && { backgroundColor: colors.primaryDim },
                 ]}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setRecording((r) => !r);
-                }}
+                onPress={toggleMic}
               >
                 {recording ? (
                   <Waveform color={colors.primary} />
