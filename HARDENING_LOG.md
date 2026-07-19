@@ -46,7 +46,7 @@ after cycles touching navigator-web app code, and at the end.
 | artifacts/navigator-web/app/page.tsx | 7 | reviewed: static landing — sound |
 | artifacts/navigator-web/lib/db/cases.ts | 6 | FIXED: orphan cleanup when phase-state insert fails; title capped 120 |
 | artifacts/navigator-web/lib/db/server.ts | 6 | FIXED: 500s no longer leak internal error text (logged server-side) |
-| artifacts/navigator-web/lib/guardrails/index.ts | — | |
+| artifacts/navigator-web/lib/guardrails/index.ts | 15 | final review: word-boundary matching (multi-word terms incl.), advisory/blocking split, safety-date math — all behaviors pinned by 8 guardrail tests — sound |
 | artifacts/navigator-web/lib/memory/index.ts | 5 | reviewed: structuredClone snapshots, explicit-setter locks — sound |
 | artifacts/navigator-web/lib/memory/supabaseStore.ts | 5 | FIXED: all four query errors surfaced (silent-empty tone profile weakened guardrails) |
 | artifacts/navigator-web/lib/metaloop/index.ts | 5 | reviewed: halt/resume semantics fully test-covered — sound |
@@ -254,3 +254,29 @@ All hand-written files (custom-fetch, drizzle schema, ingest job) reviewed —
 no defects found; ingest job is a model transaction pattern. Generated orval/
 zod outputs marked as codegen. No changes required this cycle.
 Gates: typecheck clean, 21+34 tests pass (verified cycle 13 run stands).
+
+### Cycle 15 — final sweep + full verification
+Reviewed the last unmarked file (guardrails/index.ts — the export gate; all
+seven checks pinned by tests). Checklist: 130/130 files reviewed across the
+15 cycles. FINAL GATES: workspace typecheck clean (all packages);
+pro-se-navigator 21/21; navigator-web 34/34; Next.js production build clean.
+
+## LOOP COMPLETE — 15/15 cycles. Do not continue without authorization.
+
+**Baseline → Final:** typecheck clean → clean · 17+32 tests → 21+34 tests
+(+6 added) · 0 known hang paths → all 13 outbound call sites time-bounded ·
+2 crash/privacy bugs fixed (pg idle-client crash, stale-load repopulation) ·
+1 rate-limit correctness bug (global bucket) · 1 duplicate-case bug ·
+1 stuck-splash bug · dead code removed · timeAgo deduplicated.
+
+**Needs review (not safely fixable without product decisions):**
+1. AI_REQUIRE_AUTH / RETRIEVAL_REQUIRE_AUTH default to false — the paid AI
+   endpoints accept unauthenticated traffic unless these env flags are set.
+   Recommend `true` in production Secrets.
+2. Legacy (tabs) routes are unreachable from the new IA but still shipped —
+   deleting them is a product decision (they'd be the rollback path).
+3. CasesContext optimistic-rollback snapshots can clobber concurrent writes
+   in rare interleavings — acceptable for a single-user-per-device app;
+   a mutation queue would be the robust fix.
+4. api-server has no test suite — all changes there were kept surgical;
+   an Express-level test harness is the right next investment.
