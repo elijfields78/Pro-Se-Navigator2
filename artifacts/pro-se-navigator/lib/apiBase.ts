@@ -19,3 +19,14 @@ export const API_BASE = (explicit || (domain ? `https://${domain}` : '')).replac
 export function isApiConfigured(): boolean {
   return Boolean(API_BASE);
 }
+
+/**
+ * Hermes-safe request timeout (React Native has no AbortSignal.timeout).
+ * The timer isn't cleared on success — aborting an already-settled fetch is a
+ * harmless no-op, and this keeps every call site to a one-line change.
+ */
+export function timeoutSignal(ms: number): AbortSignal {
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), ms);
+  return controller.signal;
+}

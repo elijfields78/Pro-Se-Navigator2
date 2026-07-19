@@ -8,7 +8,7 @@
  * state instead of attempting a request.
  */
 import { supabase } from '@/lib/supabase';
-import { API_BASE } from '@/lib/apiBase';
+import { API_BASE, timeoutSignal } from '@/lib/apiBase';
 
 export interface LegalSearchResult {
   citation: string;
@@ -50,6 +50,7 @@ export async function searchLegalLibrary(
   try {
     resp = await fetch(`${API_BASE}/api/retrieval/search`, {
       method: 'POST',
+      signal: timeoutSignal(30_000),
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),

@@ -5,7 +5,7 @@
  * EXPO_PUBLIC_API_URL; attaches the Supabase access token as Bearer.
  */
 import { supabase } from '@/lib/supabase';
-import { API_BASE } from '@/lib/apiBase';
+import { API_BASE, timeoutSignal } from '@/lib/apiBase';
 
 export interface AiCitation {
   n: number;
@@ -70,6 +70,7 @@ export async function askNavigator(params: {
     resp = await fetch(`${API_BASE}/api/ai/chat`, {
       method: 'POST',
       headers: await authHeaders(),
+      signal: timeoutSignal(180000),
       body: JSON.stringify(params),
     });
   } catch {
@@ -94,6 +95,7 @@ export async function researchWeb(params: {
     resp = await fetch(`${API_BASE}/api/ai/research`, {
       method: 'POST',
       headers: await authHeaders(),
+      signal: timeoutSignal(120000),
       body: JSON.stringify(params),
     });
   } catch {
@@ -131,6 +133,7 @@ export async function draftDocument(params: {
     resp = await fetch(`${API_BASE}/api/ai/draft`, {
       method: 'POST',
       headers: await authHeaders(),
+      signal: timeoutSignal(180000),
       body: JSON.stringify(params),
     });
   } catch {
@@ -172,6 +175,7 @@ export async function verifyCitations(text: string): Promise<CitationVerificatio
     resp = await fetch(`${API_BASE}/api/ai/verify`, {
       method: 'POST',
       headers: await authHeaders(),
+      signal: timeoutSignal(120000),
       body: JSON.stringify({ text }),
     });
   } catch {

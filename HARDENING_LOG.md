@@ -119,14 +119,14 @@ after cycles touching navigator-web app code, and at the end.
 | artifacts/pro-se-navigator/hooks/useDictation.ts | — | |
 | artifacts/pro-se-navigator/hooks/useGlobalSearch.ts | — | |
 | artifacts/pro-se-navigator/hooks/usePlan.ts | — | |
-| artifacts/pro-se-navigator/lib/aiClient.ts | — | |
-| artifacts/pro-se-navigator/lib/apiBase.ts | — | |
-| artifacts/pro-se-navigator/lib/deadlineRules.ts | — | |
-| artifacts/pro-se-navigator/lib/documents.ts | — | |
-| artifacts/pro-se-navigator/lib/downloadArtifact.ts | — | |
-| artifacts/pro-se-navigator/lib/retrievalClient.ts | — | |
-| artifacts/pro-se-navigator/lib/rule6.ts | — | |
-| artifacts/pro-se-navigator/lib/supabase.ts | — | |
+| artifacts/pro-se-navigator/lib/aiClient.ts | 9 | FIXED: all 4 endpoints now time-bounded (180s chat/draft, 120s research/verify) — no more infinite spinners |
+| artifacts/pro-se-navigator/lib/apiBase.ts | 9 | ADDED timeoutSignal() — Hermes-safe request timeout helper; URL fallback reviewed |
+| artifacts/pro-se-navigator/lib/deadlineRules.ts | 9 | reviewed: covered by tests — sound |
+| artifacts/pro-se-navigator/lib/documents.ts | 9 | reviewed: 25MB cap, mime allowlist, orphan rollback on insert failure — sound |
+| artifacts/pro-se-navigator/lib/downloadArtifact.ts | 9 | reviewed: web blob + native share paths — sound |
+| artifacts/pro-se-navigator/lib/retrievalClient.ts | 9 | FIXED: 30s timeout on legal-library search |
+| artifacts/pro-se-navigator/lib/rule6.ts | 9 | reviewed: deterministic, covered by 17 tests — sound |
+| artifacts/pro-se-navigator/lib/supabase.ts | 9 | reviewed: SecureStore adapter, PKCE, env warning — sound |
 | artifacts/pro-se-navigator/metro.config.js | — | |
 | artifacts/pro-se-navigator/scripts/build.js | — | |
 | artifacts/pro-se-navigator/server/serve.js | — | |
@@ -214,3 +214,10 @@ monotonic load-epoch guard on every setState path incl. documents. (2) stuck
 splash — getSession() rejection never cleared isLoading; fixed with
 catch/finally. ThemeContext/types reviewed sound.
 Gates: typecheck clean, 17+34 tests pass.
+
+### Cycle 9 — mobile lib layer
+Found: every mobile API call (chat/research/draft/verify/retrieval) had no
+timeout — a stalled network left the UI spinner hanging forever. Hermes lacks
+AbortSignal.timeout, so added a controller-based timeoutSignal() helper in
+apiBase and wired all five call sites. supabase/documents/rule6/deadlineRules
+reviewed sound. Gates: typecheck clean, 17+34 tests pass.
