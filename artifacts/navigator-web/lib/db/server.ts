@@ -46,11 +46,13 @@ export async function requireUser(req: Request): Promise<AuthedContext> {
   return { user: data.user, db };
 }
 
-/** Uniform error → HTTP mapping for route handlers. */
+/** Uniform error → HTTP mapping for route handlers. Internal error details are
+ *  logged server-side, never returned to the client (they can carry table
+ *  names and constraint text). */
 export function toErrorResponse(err: unknown): Response {
   if (err instanceof AuthError) {
     return Response.json({ error: err.message }, { status: 401 });
   }
-  const message = err instanceof Error ? err.message : 'Unexpected error.';
-  return Response.json({ error: message }, { status: 500 });
+  console.error('[api] request failed:', err instanceof Error ? err.message : err);
+  return Response.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
 }

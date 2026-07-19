@@ -15,8 +15,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   try {
     const { db, user } = await requireUser(req);
     const { id } = await ctx.params;
-    const body = (await req.json()) as { story?: string };
-    const story = body.story?.trim();
+    const body = (await req.json().catch(() => ({}))) as { story?: string };
+    const story = typeof body.story === 'string' ? body.story.trim().slice(0, 20000) : '';
     if (!story) return Response.json({ error: 'story is required' }, { status: 400 });
     if (!process.env.ANTHROPIC_API_KEY) {
       return Response.json({ error: 'ANTHROPIC_API_KEY is not configured.' }, { status: 503 });

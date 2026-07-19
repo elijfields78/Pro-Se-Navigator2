@@ -126,7 +126,7 @@ export async function createCase(
 ): Promise<CaseRow> {
   const { data, error } = await db
     .from('nav_cases')
-    .insert({ user_id: userId, title, workflow: 'cold_start' })
+    .insert({ user_id: userId, title: title.slice(0, 120), workflow: 'cold_start' })
     .select(CASE_COLUMNS)
     .single();
   if (error) throw error;
@@ -138,7 +138,12 @@ export async function createCase(
     phase: 'story_intake',
     gate_artifacts: {},
   });
-  if (phaseErr) throw phaseErr;
+  if (phaseErr) {
+    // A case without phase state is unreadable (getCaseBundle expects exactly
+    // one phase row) — clean up rather than leave an orphan.
+    await db.from('nav_cases').delete().eq('id', data.id);
+    throw phaseErr;
+  }
   return data as CaseRow;
 }
 

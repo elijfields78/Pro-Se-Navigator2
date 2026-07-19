@@ -19,11 +19,19 @@ export async function POST(req: NextRequest) {
     return new Response('ANTHROPIC_API_KEY is not configured.', { status: 503 });
   }
 
-  const { messages } = (await req.json()) as {
-    messages: Array<{ role: 'user' | 'assistant'; content: string }>;
+  const { messages } = (await req.json().catch(() => ({}))) as {
+    messages?: Array<{ role?: string; content?: string }>;
   };
   if (!Array.isArray(messages) || messages.length === 0) {
     return new Response('messages[] required', { status: 400 });
+  }
+  // Validate shape and bound size — this endpoint spends real tokens.
+  const clean: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+  for (const m of messages.slice(-30)) {
+    if ((m.role !== 'user' && m.role !== 'assistant') || typeof m.content !== 'string') {
+      return new Response('each message needs role user|assistant and string content', { status: 400 });
+    }
+    clean.push({ role: m.role, content: m.content.slice(0, 8000) });
   }
 
   const { default: Anthropic } = await import('@anthropic-ai/sdk');
@@ -33,7 +41,7 @@ export async function POST(req: NextRequest) {
     model: 'claude-sonnet-5',
     max_tokens: 2000,
     system: SYSTEM,
-    messages: messages.slice(-30),
+    messages: clean,
   });
 
   const encoder = new TextEncoder();

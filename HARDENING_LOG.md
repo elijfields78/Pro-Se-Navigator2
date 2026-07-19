@@ -35,23 +35,23 @@ after cycles touching navigator-web app code, and at the end.
 | artifacts/api-server/src/routes/health.ts | 3 | reviewed: zod-validated static response — sound |
 | artifacts/api-server/src/routes/index.ts | 3 | reviewed: trivial composition — sound |
 | artifacts/api-server/src/routes/retrieval.ts | 2 | reviewed: zod-validated, capped limit 25 — sound; same auth-default note |
-| artifacts/navigator-web/app/api/cases/[id]/advance/route.ts | — | |
-| artifacts/navigator-web/app/api/cases/[id]/approve-narrative/route.ts | — | |
-| artifacts/navigator-web/app/api/cases/[id]/intake/route.ts | — | |
-| artifacts/navigator-web/app/api/cases/[id]/route.ts | — | |
-| artifacts/navigator-web/app/api/cases/route.ts | — | |
-| artifacts/navigator-web/app/api/chat/route.ts | — | |
+| artifacts/navigator-web/app/api/cases/[id]/advance/route.ts | 6 | reviewed: server-side artifact recompute — sound |
+| artifacts/navigator-web/app/api/cases/[id]/approve-narrative/route.ts | 6 | reviewed: sound |
+| artifacts/navigator-web/app/api/cases/[id]/intake/route.ts | 6 | FIXED: story typed/capped 20k; tolerant JSON parse |
+| artifacts/navigator-web/app/api/cases/[id]/route.ts | 6 | reviewed: sound |
+| artifacts/navigator-web/app/api/cases/route.ts | 6 | reviewed: auth + toErrorResponse — sound |
+| artifacts/navigator-web/app/api/chat/route.ts | 6 | FIXED: message shape/role validation, 8k/message + 30-message caps (token abuse) |
 | artifacts/navigator-web/app/app/page.tsx | — | |
 | artifacts/navigator-web/app/layout.tsx | — | |
 | artifacts/navigator-web/app/page.tsx | — | |
-| artifacts/navigator-web/lib/db/cases.ts | — | |
-| artifacts/navigator-web/lib/db/server.ts | — | |
+| artifacts/navigator-web/lib/db/cases.ts | 6 | FIXED: orphan cleanup when phase-state insert fails; title capped 120 |
+| artifacts/navigator-web/lib/db/server.ts | 6 | FIXED: 500s no longer leak internal error text (logged server-side) |
 | artifacts/navigator-web/lib/guardrails/index.ts | — | |
 | artifacts/navigator-web/lib/memory/index.ts | 5 | reviewed: structuredClone snapshots, explicit-setter locks — sound |
 | artifacts/navigator-web/lib/memory/supabaseStore.ts | 5 | FIXED: all four query errors surfaced (silent-empty tone profile weakened guardrails) |
 | artifacts/navigator-web/lib/metaloop/index.ts | 5 | reviewed: halt/resume semantics fully test-covered — sound |
 | artifacts/navigator-web/lib/subagents/index.ts | 5 | FIXED: settled promises pruned from running map (long-lived leak); model routing reviewed |
-| artifacts/navigator-web/lib/supabaseBrowser.ts | — | |
+| artifacts/navigator-web/lib/supabaseBrowser.ts | 6 | reviewed: singleton + env guard — sound |
 | artifacts/navigator-web/lib/verification/courtlistener.ts | 4 | FIXED: 30s timeout on lookup; pure mapper already tested |
 | artifacts/navigator-web/lib/verification/extract.ts | 4 | reviewed: conservative patterns confirmed by 2 new edge tests (multi-§, bare CFR, no bare-Rule false positives) |
 | artifacts/navigator-web/lib/verification/index.ts | 4 | reviewed: budget bound, honest fallbacks, gate semantics tested — sound |
@@ -192,3 +192,11 @@ Files: workflows/storyIntake.ts, subagents/index.ts, memory/supabaseStore.ts
 Found: intake LLM calls sequential + untimed; orchestrator retained settled
 promises forever; memory store silently swallowed tone/events/assets query
 errors (guardrail-weakening). Fixed all three. Gates: typecheck clean, 17+34 pass.
+
+### Cycle 6 — navigator-web API routes + data layer
+Found: /api/chat accepted unbounded/unvalidated messages (token-cost abuse);
+createCase orphaned the case row when the phase-state insert failed (case then
+unreadable); intake story and title uncapped; 500 responses leaked internal
+error messages (table/constraint text). Fixed all. Reviewed-sound: remaining
+case routes, supabaseBrowser. Gates: typecheck clean, 34 web tests pass,
+production build clean.
