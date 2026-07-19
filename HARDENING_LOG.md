@@ -67,27 +67,27 @@ after cycles touching navigator-web app code, and at the end.
 | artifacts/navigator-web/tests/metaloop-subagents.test.ts | 5 | reviewed as part of cycle 5 verification |
 | artifacts/navigator-web/tests/verification.test.ts | 4 | extended: +2 extraction edge tests (34 total web tests) |
 | artifacts/navigator-web/tests/wiring.test.ts | 5 | reviewed: leapfrog rejection covered |
-| artifacts/pro-se-navigator/app/(auth)/_layout.tsx | — | |
-| artifacts/pro-se-navigator/app/(auth)/login.tsx | — | |
-| artifacts/pro-se-navigator/app/(auth)/register.tsx | — | |
-| artifacts/pro-se-navigator/app/(tabs)/_layout.tsx | — | |
-| artifacts/pro-se-navigator/app/(tabs)/artifacts.tsx | — | |
-| artifacts/pro-se-navigator/app/(tabs)/cases.tsx | — | |
-| artifacts/pro-se-navigator/app/(tabs)/chat.tsx | — | |
-| artifacts/pro-se-navigator/app/(tabs)/deadlines.tsx | — | |
-| artifacts/pro-se-navigator/app/(tabs)/index.tsx | — | |
-| artifacts/pro-se-navigator/app/(tabs)/sources.tsx | — | |
-| artifacts/pro-se-navigator/app/+not-found.tsx | — | |
-| artifacts/pro-se-navigator/app/_layout.tsx | — | |
-| artifacts/pro-se-navigator/app/artifacts-archive.tsx | — | |
-| artifacts/pro-se-navigator/app/case/[id].tsx | — | |
-| artifacts/pro-se-navigator/app/case/new.tsx | — | |
-| artifacts/pro-se-navigator/app/home.tsx | — | |
-| artifacts/pro-se-navigator/app/library.tsx | — | |
-| artifacts/pro-se-navigator/app/navigator.tsx | — | |
-| artifacts/pro-se-navigator/app/search.tsx | — | |
-| artifacts/pro-se-navigator/app/settings.tsx | — | |
-| artifacts/pro-se-navigator/app/usage.tsx | — | |
+| artifacts/pro-se-navigator/app/(auth)/_layout.tsx | 12 | reviewed: stack shell — sound |
+| artifacts/pro-se-navigator/app/(auth)/login.tsx | 12 | reviewed: loading/disabled/alert error paths present — sound |
+| artifacts/pro-se-navigator/app/(auth)/register.tsx | 12 | reviewed: needsConfirmation handled, error alerts — sound |
+| artifacts/pro-se-navigator/app/(tabs)/_layout.tsx | 12 | reviewed: legacy tabs (unroutable from new IA), harmless |
+| artifacts/pro-se-navigator/app/(tabs)/artifacts.tsx | 12 | reviewed: legacy route — sound |
+| artifacts/pro-se-navigator/app/(tabs)/cases.tsx | 12 | reviewed: legacy route; undo-delete ref pattern sound |
+| artifacts/pro-se-navigator/app/(tabs)/chat.tsx | 12 | reviewed: legacy route — sound |
+| artifacts/pro-se-navigator/app/(tabs)/deadlines.tsx | 12 | reviewed: legacy route — sound |
+| artifacts/pro-se-navigator/app/(tabs)/index.tsx | 12 | reviewed: redirect to /home |
+| artifacts/pro-se-navigator/app/(tabs)/sources.tsx | 12 | reviewed: reachable via legacy tabs; search error states present |
+| artifacts/pro-se-navigator/app/+not-found.tsx | 12 | reviewed: stock — sound |
+| artifacts/pro-se-navigator/app/_layout.tsx | 12 | reviewed: provider tree, font gate, AuthGate — sound |
+| artifacts/pro-se-navigator/app/artifacts-archive.tsx | 12 | reviewed: list over context state — sound |
+| artifacts/pro-se-navigator/app/case/[id].tsx | 12 | reviewed: doc open/delete error alerts, rename modal — sound |
+| artifacts/pro-se-navigator/app/case/new.tsx | 12 | reviewed: one-tap create w/ rollback alert — sound |
+| artifacts/pro-se-navigator/app/home.tsx | 12 | reviewed: real activity trace tied to request lifecycle, error paths message the user — sound |
+| artifacts/pro-se-navigator/app/library.tsx | 12 | FIXED: ?tab= param now switches sections after mount (discovery button while Library mounted) |
+| artifacts/pro-se-navigator/app/navigator.tsx | 12 | reviewed: legacy command surface; try/catch present — sound (superseded by /home, kept as route) |
+| artifacts/pro-se-navigator/app/search.tsx | 12 | reviewed: client-side filter, no async failure surface — sound |
+| artifacts/pro-se-navigator/app/settings.tsx | 12 | reviewed: theme toggle, destructive confirm — sound |
+| artifacts/pro-se-navigator/app/usage.tsx | 12 | reviewed: static plan display, no async — sound |
 | artifacts/pro-se-navigator/babel.config.js | — | |
 | artifacts/pro-se-navigator/components/AIMessage.tsx | 10 | reviewed: typewriter cleanup on unmount, bounded replay cache — sound |
 | artifacts/pro-se-navigator/components/ActivityRow.tsx | 10 | reviewed: pulse loop cleanup — sound |
@@ -235,3 +235,10 @@ Extracted to utils/timeAgo.ts (library.tsx keeps its long-format variant — a
 different display contract, noted). ErrorBoundary/Fallback, DeadlineCard,
 VerifiedTag, SearchBar, KeyboardAwareScrollViewCompat reviewed sound.
 Gates: typecheck clean, 17+34 tests pass.
+
+### Cycle 12 — mobile screens
+Found: Library ignored ?tab= after first mount (discovery button no-op when
+Library already in the stack) — fixed with a param-tracking effect. All 20
+other screens reviewed: auth screens have proper loading/error paths; legacy
+(tabs) routes are unreachable from the new IA but intact and harmless (noted
+for future deletion as a product decision). Gates: typecheck clean, 17+34 pass.

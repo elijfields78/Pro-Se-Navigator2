@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -75,6 +75,13 @@ export default function LibraryScreen() {
     : null;
   const [section, setSection] = useState<Section | null>(initialSection);
   const [refreshing, setRefreshing] = useState(false);
+
+  // A later navigation with ?tab= (e.g. the discovery button while Library is
+  // already mounted) must still switch collections — params only seed state
+  // on mount, so track changes explicitly.
+  useEffect(() => {
+    if (initialSection) setSection(initialSection);
+  }, [initialSection]);
 
   const displayName = user?.name || user?.email?.split('@')[0] || 'Your library';
 
