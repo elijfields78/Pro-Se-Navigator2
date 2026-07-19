@@ -49,11 +49,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Restore session on mount
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ? sessionToUser(session.user) : null);
-      setIsLoading(false);
-    });
+    // Restore session on mount. The catch matters: if restore rejects
+    // (storage/network hiccup), isLoading must still clear or the app is
+    // stuck on the splash forever.
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        setUser(session?.user ? sessionToUser(session.user) : null);
+      })
+      .catch(() => {})
+      .finally(() => setIsLoading(false));
 
     // Subscribe to auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {

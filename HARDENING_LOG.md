@@ -109,10 +109,10 @@ after cycles touching navigator-web app code, and at the end.
 | artifacts/pro-se-navigator/components/UserMessage.tsx | — | |
 | artifacts/pro-se-navigator/components/VerifiedTag.tsx | — | |
 | artifacts/pro-se-navigator/constants/colors.ts | — | |
-| artifacts/pro-se-navigator/contexts/AuthContext.tsx | — | |
-| artifacts/pro-se-navigator/contexts/CasesContext.tsx | — | |
-| artifacts/pro-se-navigator/contexts/ThemeContext.tsx | — | |
-| artifacts/pro-se-navigator/contexts/types.ts | — | |
+| artifacts/pro-se-navigator/contexts/AuthContext.tsx | 8 | FIXED: getSession rejection left isLoading=true forever (stuck splash); PKCE Google flow reviewed sound |
+| artifacts/pro-se-navigator/contexts/CasesContext.tsx | 8 | FIXED: load-epoch guard — sign-out during in-flight load repopulated prior user data (privacy). Known-accepted: snapshot rollbacks in sendMessage may clobber concurrent optimistic writes (single-user app, low risk) |
+| artifacts/pro-se-navigator/contexts/ThemeContext.tsx | 8 | reviewed: persisted pref, system coercion, safe default — sound |
+| artifacts/pro-se-navigator/contexts/types.ts | 8 | reviewed: types only, discriminated pendingFollowUp union — sound |
 | artifacts/pro-se-navigator/data/intakeScripts.ts | — | |
 | artifacts/pro-se-navigator/hooks/useColorScheme.ts | — | |
 | artifacts/pro-se-navigator/hooks/useColors.ts | — | |
@@ -206,3 +206,11 @@ Found: duplicate-case bug — first-message intake failure left caseInfo unset,
 so the retry created a second case. Fixed: refreshCase(caseId) runs right
 after creation, before intake. Layout/landing reviewed sound.
 Gates: typecheck clean, 34 tests pass.
+
+### Cycle 8 — mobile contexts
+Found: (1) privacy bug — signing out during an in-flight loadAll let the stale
+response repopulate the previous user's cases after the clear; fixed with a
+monotonic load-epoch guard on every setState path incl. documents. (2) stuck
+splash — getSession() rejection never cleared isLoading; fixed with
+catch/finally. ThemeContext/types reviewed sound.
+Gates: typecheck clean, 17+34 tests pass.

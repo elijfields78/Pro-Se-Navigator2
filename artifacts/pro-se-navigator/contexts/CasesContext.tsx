@@ -4,6 +4,7 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useRef,
   ReactNode,
 } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -202,9 +203,16 @@ export function CasesProvider({ children }: { children: ReactNode }) {
   const [activeCaseId, setActiveCaseIdState] = useState<string | null>(null);
   const [isLoading, setIsLoading]            = useState(true);
 
+  // Monotonic load epoch: a completion whose epoch is stale (sign-out or a
+  // newer load started meanwhile) must NOT write state. Without this, signing
+  // out during an in-flight load repopulated the previous user's data after
+  // the clear — visible on a shared device.
+  const loadEpoch = useRef(0);
+
   // ── Load all data when user changes ───────────────────────────────────────
   useEffect(() => {
     if (!user) {
+      loadEpoch.current += 1; // invalidate any in-flight load
       setCases([]);
       setMessages({});
       setDeadlines([]);
@@ -219,6 +227,7 @@ export function CasesProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   const loadAll = useCallback(async (uid: string, opts: { silent?: boolean } = {}) => {
+    const epoch = ++loadEpoch.current;
     // silent: keep isLoading untouched so pull-to-refresh doesn't swap the
     // whole screen for a spinner — the RefreshControl is the only indicator.
     if (!opts.silent) setIsLoading(true);
@@ -236,6 +245,9 @@ export function CasesProvider({ children }: { children: ReactNode }) {
       if (deadlinesRes.error) throw deadlinesRes.error;
       if (sourcesRes.error) throw sourcesRes.error;
       if (artifactsRes.error) throw artifactsRes.error;
+
+      // Stale completion (signed out / superseded by a newer load): drop it.
+      if (epoch !== loadEpoch.current) return;
 
       const loadedCases = (casesRes.data ?? []).map(dbToCase);
 
@@ -255,14 +267,15 @@ export function CasesProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error('[CasesContext] loadAll error:', err);
     } finally {
-      if (!opts.silent) setIsLoading(false);
+      if (!opts.silent && epoch === loadEpoch.current) setIsLoading(false);
     }
 
     // Documents load separately and defensively: the documents table/bucket
     // (migration 004) may not be applied in every environment yet, and a
     // failure here must not block the core case data above.
     try {
-      setDocuments(await listUserDocuments(uid));
+      const docs = await listUserDocuments(uid);
+      if (epoch === loadEpoch.current) setDocuments(docs);
     } catch (err) {
       console.warn('[CasesContext] documents load skipped:', err);
     }
