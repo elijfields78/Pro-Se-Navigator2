@@ -5,6 +5,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 import { useColors } from '@/hooks/useColors';
 import { Case, CaseType } from '@/contexts/types';
 import * as Haptics from 'expo-haptics';
+import { timeAgo } from '@/utils/timeAgo';
 
 export const CASE_TYPE_LABELS: Record<CaseType, string> = {
   general: 'General Civil',
@@ -21,17 +22,6 @@ const TYPE_ICON: Record<CaseType, keyof typeof Feather.glyphMap> = {
   ifp: 'file-text',
 };
 
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = diff / 60000;
-  if (mins < 2) return 'Just now';
-  if (mins < 60) return `${Math.floor(mins)}m ago`;
-  const hours = mins / 60;
-  if (hours < 24) return `${Math.floor(hours)}h ago`;
-  const days = hours / 24;
-  if (days < 7) return `${Math.floor(days)}d ago`;
-  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
 
 interface CaseCardProps {
   caseItem: Case;

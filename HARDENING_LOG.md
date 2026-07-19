@@ -91,23 +91,23 @@ after cycles touching navigator-web app code, and at the end.
 | artifacts/pro-se-navigator/babel.config.js | — | |
 | artifacts/pro-se-navigator/components/AIMessage.tsx | 10 | reviewed: typewriter cleanup on unmount, bounded replay cache — sound |
 | artifacts/pro-se-navigator/components/ActivityRow.tsx | 10 | reviewed: pulse loop cleanup — sound |
-| artifacts/pro-se-navigator/components/ArtifactCard.tsx | — | |
+| artifacts/pro-se-navigator/components/ArtifactCard.tsx | 11 | deduped timeAgo; theme-aware kinds, download btn — sound |
 | artifacts/pro-se-navigator/components/AttachmentSheet.tsx | 10 | FIXED: dead imports removed (Animated, useWindowDimensions, Platform); permission flows sound |
-| artifacts/pro-se-navigator/components/CaseCard.tsx | — | |
+| artifacts/pro-se-navigator/components/CaseCard.tsx | 11 | deduped timeAgo; swipe/entrance/delete-confirm reviewed sound |
 | artifacts/pro-se-navigator/components/CaseChat.tsx | 10 | FIXED: memoized reversed list + lastNavId (was re-reversing every render, breaking item identity) |
 | artifacts/pro-se-navigator/components/ChatInput.tsx | 10 | reviewed: dictation stop-on-send, glow/pulse loops cleaned up — sound |
-| artifacts/pro-se-navigator/components/DeadlineCard.tsx | — | |
+| artifacts/pro-se-navigator/components/DeadlineCard.tsx | 11 | reviewed: three-state theme-aware urgency — sound |
 | artifacts/pro-se-navigator/components/DeadlineDateEntry.tsx | 10 | reviewed: loading/error/disabled handling present — sound |
-| artifacts/pro-se-navigator/components/DocumentCard.tsx | — | |
-| artifacts/pro-se-navigator/components/ErrorBoundary.tsx | — | |
-| artifacts/pro-se-navigator/components/ErrorFallback.tsx | — | |
-| artifacts/pro-se-navigator/components/KeyboardAwareScrollViewCompat.tsx | — | |
+| artifacts/pro-se-navigator/components/DocumentCard.tsx | 11 | deduped timeAgo; mime visuals, opening spinner — sound |
+| artifacts/pro-se-navigator/components/ErrorBoundary.tsx | 11 | reviewed: class boundary + resetError — sound |
+| artifacts/pro-se-navigator/components/ErrorFallback.tsx | 11 | reviewed: retry path present — sound |
+| artifacts/pro-se-navigator/components/KeyboardAwareScrollViewCompat.tsx | 11 | reviewed: thin compat wrapper — sound |
 | artifacts/pro-se-navigator/components/MessageActionSheet.tsx | 10 | reviewed: share error alert, clipboard — sound |
 | artifacts/pro-se-navigator/components/NextStepRow.tsx | 10 | reviewed: sound |
-| artifacts/pro-se-navigator/components/SearchBar.tsx | — | |
+| artifacts/pro-se-navigator/components/SearchBar.tsx | 11 | reviewed: focus anim, clear btn — sound |
 | artifacts/pro-se-navigator/components/TypingIndicator.tsx | 10 | reviewed: staggered loops cleaned up — sound |
 | artifacts/pro-se-navigator/components/UserMessage.tsx | 10 | reviewed: sound |
-| artifacts/pro-se-navigator/components/VerifiedTag.tsx | — | |
+| artifacts/pro-se-navigator/components/VerifiedTag.tsx | 11 | reviewed: theme-aware states — sound |
 | artifacts/pro-se-navigator/constants/colors.ts | — | |
 | artifacts/pro-se-navigator/contexts/AuthContext.tsx | 8 | FIXED: getSession rejection left isLoading=true forever (stuck splash); PKCE Google flow reviewed sound |
 | artifacts/pro-se-navigator/contexts/CasesContext.tsx | 8 | FIXED: load-epoch guard — sign-out during in-flight load repopulated prior user data (privacy). Known-accepted: snapshot rollbacks in sendMessage may clobber concurrent optimistic writes (single-user app, low risk) |
@@ -228,3 +228,10 @@ every render — wasted O(n) work per keystroke and unstable FlatList identity;
 AttachmentSheet carried three dead imports. Fixed both. Eight further chat
 components reviewed sound (animation loops all have cleanup; error paths
 alert the user). Gates: typecheck clean, 17+34 tests pass.
+
+### Cycle 11 — mobile cards + duplication
+Found: timeAgo duplicated verbatim in CaseCard/ArtifactCard/DocumentCard.
+Extracted to utils/timeAgo.ts (library.tsx keeps its long-format variant — a
+different display contract, noted). ErrorBoundary/Fallback, DeadlineCard,
+VerifiedTag, SearchBar, KeyboardAwareScrollViewCompat reviewed sound.
+Gates: typecheck clean, 17+34 tests pass.

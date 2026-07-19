@@ -4,6 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
 import { CaseDocument, DocumentSource } from '@/contexts/types';
 import * as Haptics from 'expo-haptics';
+import { timeAgo } from '@/utils/timeAgo';
 
 const SOURCE_LABELS: Record<DocumentSource, string> = {
   image: 'Photo',
@@ -36,17 +37,6 @@ function formatSize(bytes?: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = diff / 60000;
-  if (mins < 2) return 'Just now';
-  if (mins < 60) return `${Math.floor(mins)}m ago`;
-  const hours = mins / 60;
-  if (hours < 24) return `${Math.floor(hours)}h ago`;
-  const days = hours / 24;
-  if (days < 7) return `${Math.floor(days)}d ago`;
-  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
 
 interface DocumentCardProps {
   document: CaseDocument;
