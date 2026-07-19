@@ -19,21 +19,21 @@ after cycles touching navigator-web app code, and at the end.
 
 | File | Reviewed (cycle) | Notes |
 |---|---|---|
-| artifacts/api-server/build.mjs | — | |
+| artifacts/api-server/build.mjs | 3 | reviewed lightly: esbuild bundling config, no runtime surface |
 | artifacts/api-server/src/app.ts | 2 | FIXED: trust proxy (rate limit was one global bucket behind proxy); 256kb body limits |
-| artifacts/api-server/src/index.ts | — | |
+| artifacts/api-server/src/index.ts | 3 | reviewed: PORT validation, listen error exit — sound |
 | artifacts/api-server/src/lib/ai.ts | 1 | Anthropic client timeout 120s; prompts/model router reviewed, sound |
 | artifacts/api-server/src/lib/courtlistener.ts | 1 | 30s fetch timeout added; status mapping tolerant of field drift |
-| artifacts/api-server/src/lib/db.ts | — | |
-| artifacts/api-server/src/lib/logger.ts | — | |
+| artifacts/api-server/src/lib/db.ts | 3 | FIXED: pool error handler (idle-client error crashed process); statement/connect timeouts; max 10 |
+| artifacts/api-server/src/lib/logger.ts | 3 | reviewed: auth/cookie redaction present — sound |
 | artifacts/api-server/src/lib/perplexity.ts | 1 | 90s/30s fetch timeouts added; verdict+URL double-check confirmed sound |
-| artifacts/api-server/src/lib/retrieval.ts | — | |
+| artifacts/api-server/src/lib/retrieval.ts | 3 | reviewed: parameterized SQL, safe tsquery fallback, capped limit — sound |
 | artifacts/api-server/src/lib/verification.ts | 1 | reviewed: 5-confirm budget bounds fan-out; honest status mapping; no change |
 | artifacts/api-server/src/middlewares/auth.ts | 2 | FIXED: 10s timeout + bounded 30s token cache (was 1 Supabase round-trip per request) |
 | artifacts/api-server/src/middlewares/rateLimit.ts | 2 | reviewed: fixed-window OK single-instance; sweep bounded; keyed by req.ip (now correct w/ trust proxy) |
 | artifacts/api-server/src/routes/ai.ts | 2 | reviewed: zod-validated, size-capped, rate-limited, 503 on unconfigured — sound. NEEDS REVIEW: AI_REQUIRE_AUTH defaults false (paid endpoints open); product decision to flip |
-| artifacts/api-server/src/routes/health.ts | — | |
-| artifacts/api-server/src/routes/index.ts | — | |
+| artifacts/api-server/src/routes/health.ts | 3 | reviewed: zod-validated static response — sound |
+| artifacts/api-server/src/routes/index.ts | 3 | reviewed: trivial composition — sound |
 | artifacts/api-server/src/routes/retrieval.ts | 2 | reviewed: zod-validated, capped limit 25 — sound; same auth-default note |
 | artifacts/navigator-web/app/api/cases/[id]/advance/route.ts | — | |
 | artifacts/navigator-web/app/api/cases/[id]/approve-narrative/route.ts | — | |
@@ -167,4 +167,14 @@ uncached + no timeout (1 Supabase round-trip per request, hang-prone).
 Fixed: trust proxy=1; 256kb body limits; 10s auth timeout + bounded 30s token cache.
 NEEDS REVIEW: AI_REQUIRE_AUTH / RETRIEVAL_REQUIRE_AUTH default to false — paid
 endpoints are open unless the env flags are set; recommend enabling in production.
+Gates: typecheck clean, 17+32 tests pass.
+
+### Cycle 3 — api-server data layer + entrypoints
+Files: lib/db.ts (+retrieval.ts, logger.ts, index.ts, routes/index.ts,
+routes/health.ts, build.mjs reviewed; ai.ts generation paths re-reviewed).
+Found: pg Pool had NO 'error' handler — an idle pooled client error (routine
+with remote Postgres) is an unhandled event that crashes the process. No
+statement/connection timeouts, unbounded pool. Fixed: error handler, max 10,
+10s connect / 15s statement / 30s idle timeouts.
+Reviewed-sound: parameterized retrieval SQL, log redaction, PORT validation.
 Gates: typecheck clean, 17+32 tests pass.

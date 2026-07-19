@@ -34,7 +34,21 @@ export function getPool(): pg.Pool {
     );
   }
   if (!pool) {
-    pool = new Pool({ connectionString: cs });
+    pool = new Pool({
+      connectionString: cs,
+      max: 10,
+      connectionTimeoutMillis: 10_000,
+      idleTimeoutMillis: 30_000,
+      // Bounds any single query; retrieval queries are sub-second when healthy.
+      statement_timeout: 15_000,
+    });
+    // Without this, an error on an IDLE pooled client (routine with a remote
+    // Postgres — network blips, pooler restarts) is an unhandled 'error' event
+    // and crashes the entire process.
+    pool.on("error", (err) => {
+      // eslint-disable-next-line no-console
+      console.error("[db] idle client error (recovered):", err.message);
+    });
   }
   return pool;
 }
