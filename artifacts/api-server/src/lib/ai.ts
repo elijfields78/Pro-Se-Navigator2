@@ -16,7 +16,12 @@ function getClient(): Anthropic {
     throw new Error("ANTHROPIC_API_KEY is not set; AI features are disabled.");
   }
   if (!client) {
-    client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    client = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+      // Bound each model call; the SDK default (10 min) outlives every client
+      // timeout in front of this server. Retries stay at the SDK default (2).
+      timeout: 120_000,
+    });
   }
   return client;
 }

@@ -47,20 +47,31 @@ export async function researchWithPerplexity(params: {
     ? `CASE CONTEXT: ${params.caseContext}\n\nRESEARCH QUESTION: ${params.query}`
     : params.query;
 
-  const resp = await fetch(PERPLEXITY_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: "system", content: RESEARCH_SYSTEM_PROMPT },
-        { role: "user", content: userContent },
-      ],
-    }),
-  });
+  let resp: Response;
+  try {
+    resp = await fetch(PERPLEXITY_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: RESEARCH_SYSTEM_PROMPT },
+          { role: "user", content: userContent },
+        ],
+      }),
+      // Research is the slowest upstream call; bound it so a hung upstream
+      // can't pin the request (and its rate-limit slot) indefinitely.
+      signal: AbortSignal.timeout(90_000),
+    });
+  } catch (err) {
+    if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) {
+      throw new Error("Perplexity research timed out; please try again.");
+    }
+    throw err;
+  }
 
   if (!resp.ok) {
     const detail = await resp.text().catch(() => "");
@@ -122,20 +133,30 @@ export async function confirmCitationWithPerplexity(params: {
     ? `Citation: ${params.citation}. Reported case name: ${params.caseName}.`
     : `Citation: ${params.citation}.`;
 
-  const resp = await fetch(PERPLEXITY_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: researchModel(),
-      messages: [
-        { role: "system", content: CONFIRM_SYSTEM_PROMPT },
-        { role: "user", content: query },
-      ],
-    }),
-  });
+  let resp: Response;
+  try {
+    resp = await fetch(PERPLEXITY_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: researchModel(),
+        messages: [
+          { role: "system", content: CONFIRM_SYSTEM_PROMPT },
+          { role: "user", content: query },
+        ],
+      }),
+      // Bounded: verification fans out to several confirms per request.
+      signal: AbortSignal.timeout(30_000),
+    });
+  } catch (err) {
+    if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) {
+      throw new Error("Perplexity confirm timed out.");
+    }
+    throw err;
+  }
 
   if (!resp.ok) {
     const detail = await resp.text().catch(() => "");

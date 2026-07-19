@@ -68,14 +68,24 @@ export async function verifyCitationsInText(
     throw new Error("COURTLISTENER_API_TOKEN is not set; verification is disabled.");
   }
 
-  const resp = await fetch(CITATION_LOOKUP_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Token ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ text: text.slice(0, 64000) }),
-  });
+  let resp: Response;
+  try {
+    resp = await fetch(CITATION_LOOKUP_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Token ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ text: text.slice(0, 64000) }),
+      // Bound the lookup so a hung upstream can't pin the request.
+      signal: AbortSignal.timeout(30_000),
+    });
+  } catch (err) {
+    if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) {
+      throw new Error("CourtListener lookup timed out.");
+    }
+    throw err;
+  }
 
   if (!resp.ok) {
     const detail = await resp.text().catch(() => "");

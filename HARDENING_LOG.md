@@ -22,13 +22,13 @@ after cycles touching navigator-web app code, and at the end.
 | artifacts/api-server/build.mjs | — | |
 | artifacts/api-server/src/app.ts | — | |
 | artifacts/api-server/src/index.ts | — | |
-| artifacts/api-server/src/lib/ai.ts | — | |
-| artifacts/api-server/src/lib/courtlistener.ts | — | |
+| artifacts/api-server/src/lib/ai.ts | 1 | Anthropic client timeout 120s; prompts/model router reviewed, sound |
+| artifacts/api-server/src/lib/courtlistener.ts | 1 | 30s fetch timeout added; status mapping tolerant of field drift |
 | artifacts/api-server/src/lib/db.ts | — | |
 | artifacts/api-server/src/lib/logger.ts | — | |
-| artifacts/api-server/src/lib/perplexity.ts | — | |
+| artifacts/api-server/src/lib/perplexity.ts | 1 | 90s/30s fetch timeouts added; verdict+URL double-check confirmed sound |
 | artifacts/api-server/src/lib/retrieval.ts | — | |
-| artifacts/api-server/src/lib/verification.ts | — | |
+| artifacts/api-server/src/lib/verification.ts | 1 | reviewed: 5-confirm budget bounds fan-out; honest status mapping; no change |
 | artifacts/api-server/src/middlewares/auth.ts | — | |
 | artifacts/api-server/src/middlewares/rateLimit.ts | — | |
 | artifacts/api-server/src/routes/ai.ts | — | |
@@ -151,3 +151,10 @@ after cycles touching navigator-web app code, and at the end.
 | scripts/src/ingest-legal-corpus.ts | — | |
 
 ## Cycle log
+
+### Cycle 1 — api-server outbound resilience
+Files: lib/perplexity.ts, lib/courtlistener.ts, lib/ai.ts (+verification.ts reviewed).
+Found: no timeout on any outbound fetch (hung upstream pins request + rate-limit
+slot indefinitely); Anthropic SDK default timeout 10min. Fixed: AbortSignal.timeout
+(90s research / 30s confirm / 30s citation-lookup) with clear timeout errors;
+Anthropic client bounded to 120s. Gates: typecheck clean, 17+32 tests pass.
