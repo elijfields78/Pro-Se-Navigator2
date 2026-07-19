@@ -6,6 +6,10 @@ import { logger } from "./lib/logger";
 
 const app: Express = express();
 
+// Behind Replit's reverse proxy. Without this, req.ip is the proxy address and
+// the per-IP rate limiter collapses into ONE shared bucket for every user.
+app.set("trust proxy", 1);
+
 // Restrict CORS to an allowlist when CORS_ALLOWED_ORIGINS (comma-separated) is
 // set; otherwise stay permissive for local/dev. Native mobile clients send no
 // Origin header, so requests without one are always allowed.
@@ -43,8 +47,10 @@ app.use(
   }),
 );
 app.use(cors(corsOptions));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Largest legitimate payload is /ai/verify text (64k chars); 256kb leaves
+// headroom while blocking megabyte-scale junk bodies.
+app.use(express.json({ limit: "256kb" }));
+app.use(express.urlencoded({ extended: true, limit: "256kb" }));
 
 app.use("/api", router);
 

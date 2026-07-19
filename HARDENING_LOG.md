@@ -20,7 +20,7 @@ after cycles touching navigator-web app code, and at the end.
 | File | Reviewed (cycle) | Notes |
 |---|---|---|
 | artifacts/api-server/build.mjs | — | |
-| artifacts/api-server/src/app.ts | — | |
+| artifacts/api-server/src/app.ts | 2 | FIXED: trust proxy (rate limit was one global bucket behind proxy); 256kb body limits |
 | artifacts/api-server/src/index.ts | — | |
 | artifacts/api-server/src/lib/ai.ts | 1 | Anthropic client timeout 120s; prompts/model router reviewed, sound |
 | artifacts/api-server/src/lib/courtlistener.ts | 1 | 30s fetch timeout added; status mapping tolerant of field drift |
@@ -29,12 +29,12 @@ after cycles touching navigator-web app code, and at the end.
 | artifacts/api-server/src/lib/perplexity.ts | 1 | 90s/30s fetch timeouts added; verdict+URL double-check confirmed sound |
 | artifacts/api-server/src/lib/retrieval.ts | — | |
 | artifacts/api-server/src/lib/verification.ts | 1 | reviewed: 5-confirm budget bounds fan-out; honest status mapping; no change |
-| artifacts/api-server/src/middlewares/auth.ts | — | |
-| artifacts/api-server/src/middlewares/rateLimit.ts | — | |
-| artifacts/api-server/src/routes/ai.ts | — | |
+| artifacts/api-server/src/middlewares/auth.ts | 2 | FIXED: 10s timeout + bounded 30s token cache (was 1 Supabase round-trip per request) |
+| artifacts/api-server/src/middlewares/rateLimit.ts | 2 | reviewed: fixed-window OK single-instance; sweep bounded; keyed by req.ip (now correct w/ trust proxy) |
+| artifacts/api-server/src/routes/ai.ts | 2 | reviewed: zod-validated, size-capped, rate-limited, 503 on unconfigured — sound. NEEDS REVIEW: AI_REQUIRE_AUTH defaults false (paid endpoints open); product decision to flip |
 | artifacts/api-server/src/routes/health.ts | — | |
 | artifacts/api-server/src/routes/index.ts | — | |
-| artifacts/api-server/src/routes/retrieval.ts | — | |
+| artifacts/api-server/src/routes/retrieval.ts | 2 | reviewed: zod-validated, capped limit 25 — sound; same auth-default note |
 | artifacts/navigator-web/app/api/cases/[id]/advance/route.ts | — | |
 | artifacts/navigator-web/app/api/cases/[id]/approve-narrative/route.ts | — | |
 | artifacts/navigator-web/app/api/cases/[id]/intake/route.ts | — | |
@@ -158,3 +158,13 @@ Found: no timeout on any outbound fetch (hung upstream pins request + rate-limit
 slot indefinitely); Anthropic SDK default timeout 10min. Fixed: AbortSignal.timeout
 (90s research / 30s confirm / 30s citation-lookup) with clear timeout errors;
 Anthropic client bounded to 120s. Gates: typecheck clean, 17+32 tests pass.
+
+### Cycle 2 — api-server security surface
+Files: app.ts, middlewares/auth.ts (+rateLimit.ts, routes/ai.ts, routes/retrieval.ts reviewed).
+Found: (1) trust proxy unset → per-IP rate limiting was ONE global bucket for all
+users behind Replit's proxy; (2) unbounded JSON body size; (3) auth verification
+uncached + no timeout (1 Supabase round-trip per request, hang-prone).
+Fixed: trust proxy=1; 256kb body limits; 10s auth timeout + bounded 30s token cache.
+NEEDS REVIEW: AI_REQUIRE_AUTH / RETRIEVAL_REQUIRE_AUTH default to false — paid
+endpoints are open unless the env flags are set; recommend enabling in production.
+Gates: typecheck clean, 17+32 tests pass.

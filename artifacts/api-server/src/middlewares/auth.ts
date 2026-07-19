@@ -4,6 +4,13 @@ export interface AuthedRequest extends Request {
   userId?: string;
 }
 
+// Short-TTL verification cache: successive requests from the same session
+// re-use one Supabase round-trip instead of one per request. Revocation lag is
+// bounded by the TTL. Size-capped so hostile token spraying can't grow it.
+const TOKEN_CACHE_TTL_MS = 30_000;
+const TOKEN_CACHE_MAX = 1000;
+const tokenCache = new Map<string, { userId: string; expiresAt: number }>();
+
 /**
  * Verify a Supabase access token by asking Supabase's auth API who it belongs
  * to. This checks the signature and expiry server-side without us holding the
@@ -15,13 +22,31 @@ export async function verifySupabaseToken(token: string): Promise<string | null>
   const anon = process.env.SUPABASE_ANON_KEY;
   if (!url || !anon) return null;
 
+  const now = Date.now();
+  const cached = tokenCache.get(token);
+  if (cached && cached.expiresAt > now) return cached.userId;
+
   try {
     const resp = await fetch(`${url}/auth/v1/user`, {
       headers: { Authorization: `Bearer ${token}`, apikey: anon },
+      signal: AbortSignal.timeout(10_000),
     });
     if (!resp.ok) return null;
     const body = (await resp.json()) as { id?: string };
-    return body.id ?? null;
+    if (!body.id) return null;
+
+    if (tokenCache.size >= TOKEN_CACHE_MAX) {
+      // Drop expired entries first; if still full, drop the oldest insertion.
+      for (const [k, v] of tokenCache) {
+        if (v.expiresAt <= now) tokenCache.delete(k);
+      }
+      if (tokenCache.size >= TOKEN_CACHE_MAX) {
+        const oldest = tokenCache.keys().next().value;
+        if (oldest) tokenCache.delete(oldest);
+      }
+    }
+    tokenCache.set(token, { userId: body.id, expiresAt: now + TOKEN_CACHE_TTL_MS });
+    return body.id;
   } catch {
     return null;
   }
