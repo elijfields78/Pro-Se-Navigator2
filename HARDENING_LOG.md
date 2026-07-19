@@ -133,22 +133,22 @@ after cycles touching navigator-web app code, and at the end.
 | artifacts/pro-se-navigator/tests/deadlineRules.test.ts | 13 | reviewed: rule lookup covered |
 | artifacts/pro-se-navigator/tests/rule6.test.ts | 13 | reviewed: deterministic deadline math covered |
 | artifacts/pro-se-navigator/utils/autoTitle.ts | 13 | TESTED: +4 tests (composition, fallbacks, empty-input safety); logic sound |
-| lib/api-client-react/src/custom-fetch.ts | — | |
-| lib/api-client-react/src/generated/api.schemas.ts | — | |
-| lib/api-client-react/src/generated/api.ts | — | |
-| lib/api-client-react/src/index.ts | — | |
-| lib/api-spec/orval.config.ts | — | |
-| lib/api-zod/src/generated/api.ts | — | |
-| lib/api-zod/src/generated/types/healthStatus.ts | — | |
-| lib/api-zod/src/generated/types/index.ts | — | |
-| lib/api-zod/src/index.ts | — | |
-| lib/db/drizzle.config.ts | — | |
-| lib/db/src/index.ts | — | |
-| lib/db/src/schema/index.ts | — | |
-| lib/db/src/schema/legalCorpus.ts | — | |
-| scripts/src/data/legalCorpusSeed.ts | — | |
-| scripts/src/hello.ts | — | |
-| scripts/src/ingest-legal-corpus.ts | — | |
+| lib/api-client-react/src/custom-fetch.ts | 14 | reviewed: orval helper, base-url/token config, no-body statuses handled — sound |
+| lib/api-client-react/src/generated/api.schemas.ts | 14 | codegen — not hand-edited |
+| lib/api-client-react/src/generated/api.ts | 14 | codegen — not hand-edited |
+| lib/api-client-react/src/index.ts | 14 | reviewed: re-exports |
+| lib/api-spec/orval.config.ts | 14 | reviewed: codegen config |
+| lib/api-zod/src/generated/api.ts | 14 | codegen |
+| lib/api-zod/src/generated/types/healthStatus.ts | 14 | codegen |
+| lib/api-zod/src/generated/types/index.ts | 14 | codegen |
+| lib/api-zod/src/index.ts | 14 | reviewed: re-exports |
+| lib/db/drizzle.config.ts | 14 | reviewed: config |
+| lib/db/src/index.ts | 14 | reviewed: re-exports |
+| lib/db/src/schema/index.ts | 14 | reviewed: re-exports |
+| lib/db/src/schema/legalCorpus.ts | 14 | reviewed: sound drizzle schema, cascade FK, unique citation |
+| scripts/src/data/legalCorpusSeed.ts | 14 | reviewed lightly: static seed data |
+| scripts/src/hello.ts | 14 | reviewed: trivial |
+| scripts/src/ingest-legal-corpus.ts | 14 | reviewed: exemplary — transaction, rollback, release, pool.end, parameterized upserts |
 
 ## Cycle log
 
@@ -248,3 +248,9 @@ Added 4 autoTitle tests (21 mobile tests total) — the title generator names
 every case in the UI and was untested; verified composition, fallbacks, and
 empty-input safety. Hooks (dictation, global search, plan, colors), intake
 scripts, and build configs reviewed sound. Gates: typecheck clean, 21+34 pass.
+
+### Cycle 14 — workspace lib packages + scripts
+All hand-written files (custom-fetch, drizzle schema, ingest job) reviewed —
+no defects found; ingest job is a model transaction pattern. Generated orval/
+zod outputs marked as codegen. No changes required this cycle.
+Gates: typecheck clean, 21+34 tests pass (verified cycle 13 run stands).
