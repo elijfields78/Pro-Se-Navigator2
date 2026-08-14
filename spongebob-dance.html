@@ -1,0 +1,318 @@
+<!-- ============================================================
+     SPONGEBOB DANCE PARTY — GoHighLevel ready
+     Paste this ENTIRE block into a GHL "Custom HTML / Code" element.
+     100% self-contained: pure CSS + SVG, no scripts, no external files.
+     ============================================================ -->
+<div class="sbz-stage">
+  <!-- underwater light rays -->
+  <div class="sbz-ray sbz-ray1"></div>
+  <div class="sbz-ray sbz-ray2"></div>
+  <!-- disco beams -->
+  <div class="sbz-beam sbz-beamL"></div>
+  <div class="sbz-beam sbz-beamR"></div>
+  <!-- rising bubbles -->
+  <span class="sbz-bub b1"></span>
+  <span class="sbz-bub b2"></span>
+  <span class="sbz-bub b3"></span>
+  <span class="sbz-bub b4"></span>
+  <span class="sbz-bub b5"></span>
+  <span class="sbz-bub b6"></span>
+  <!-- music notes -->
+  <span class="sbz-note n1">&#9835;</span>
+  <span class="sbz-note n2">&#9834;</span>
+  <span class="sbz-note n3">&#9835;</span>
+  <span class="sbz-note n4">&#9834;</span>
+  <!-- sandy floor -->
+  <div class="sbz-floor"></div>
+  <div class="sbz-glow"></div>
+  <!-- ground shadow -->
+  <div class="sbz-shadow"></div>
+
+  <!-- ================= SPONGEBOB ================= -->
+  <svg class="sbz-bob" viewBox="0 0 420 520" aria-label="Dancing SpongeBob">
+    <defs>
+      <linearGradient id="sbzSkin" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#fdef6a"/>
+        <stop offset=".55" stop-color="#f9d829"/>
+        <stop offset="1" stop-color="#eec312"/>
+      </linearGradient>
+      <linearGradient id="sbzPants" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#8a5526"/>
+        <stop offset="1" stop-color="#6d3f18"/>
+      </linearGradient>
+      <radialGradient id="sbzCheek" cx=".5" cy=".5" r=".5">
+        <stop offset="0" stop-color="#f7a11a" stop-opacity=".55"/>
+        <stop offset="1" stop-color="#f7a11a" stop-opacity="0"/>
+      </radialGradient>
+      <filter id="sbzNoise" x="0" y="0" width="100%" height="100%">
+        <feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" result="n"/>
+        <feColorMatrix in="n" type="matrix"
+          values="0 0 0 0 .45  0 0 0 0 .33  0 0 0 0 .02  0 0 0 .5 0"/>
+        <feComposite operator="in" in2="SourceGraphic"/>
+      </filter>
+      <clipPath id="sbzBodyClip">
+        <rect x="115" y="55" width="190" height="232" rx="18"/>
+      </clipPath>
+    </defs>
+
+    <g class="sbz-sway">
+      <g class="sbz-bounce">
+
+        <!-- ===== LEGS (behind pants) ===== -->
+        <g class="sbz-leg sbz-legL">
+          <rect x="174" y="340" width="11" height="82" rx="5" fill="url(#sbzSkin)" stroke="#7a5c00" stroke-width="2"/>
+          <rect x="170" y="406" width="19" height="30" rx="6" fill="#fff" stroke="#9aa" stroke-width="1.5"/>
+          <rect x="170" y="412" width="19" height="4" fill="#d21f1f"/>
+          <rect x="170" y="418" width="19" height="4" fill="#1f4fd2"/>
+          <path d="M189 432 v-6 h-19 v6 q-24 1 -26 14 q-1 8 9 8 h30 q8 0 8 -8 z" fill="#151515"/>
+          <path d="M150 446 q6 -9 22 -10" stroke="#3c3c3c" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        </g>
+        <g class="sbz-leg sbz-legR">
+          <rect x="235" y="340" width="11" height="82" rx="5" fill="url(#sbzSkin)" stroke="#7a5c00" stroke-width="2"/>
+          <rect x="231" y="406" width="19" height="30" rx="6" fill="#fff" stroke="#9aa" stroke-width="1.5"/>
+          <rect x="231" y="412" width="19" height="4" fill="#d21f1f"/>
+          <rect x="231" y="418" width="19" height="4" fill="#1f4fd2"/>
+          <path d="M231 432 v-6 h19 v6 q24 1 26 14 q1 8 -9 8 h-30 q-8 0 -8 -8 z" fill="#151515"/>
+          <path d="M270 446 q-6 -9 -22 -10" stroke="#3c3c3c" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        </g>
+
+        <!-- ===== ARMS (behind torso) ===== -->
+        <g class="sbz-arm sbz-armL">
+          <path d="M124 300 L110 316" stroke="#fff" stroke-width="15" stroke-linecap="round"/>
+          <path d="M118 306 Q100 330 94 356" stroke="#f6d51f" stroke-width="10" fill="none" stroke-linecap="round"/>
+          <path d="M118 306 Q100 330 94 356" stroke="#7a5c00" stroke-width="13" fill="none" stroke-linecap="round" opacity=".25"/>
+          <circle cx="93" cy="362" r="10" fill="url(#sbzSkin)" stroke="#7a5c00" stroke-width="2"/>
+          <circle cx="84" cy="356" r="4.5" fill="#f9d829" stroke="#7a5c00" stroke-width="1.5"/>
+          <circle cx="83" cy="364" r="4.5" fill="#f9d829" stroke="#7a5c00" stroke-width="1.5"/>
+          <circle cx="86" cy="371" r="4.5" fill="#f9d829" stroke="#7a5c00" stroke-width="1.5"/>
+        </g>
+        <g class="sbz-arm sbz-armR">
+          <path d="M296 300 L310 316" stroke="#fff" stroke-width="15" stroke-linecap="round"/>
+          <path d="M302 306 Q320 330 326 356" stroke="#f6d51f" stroke-width="10" fill="none" stroke-linecap="round"/>
+          <path d="M302 306 Q320 330 326 356" stroke="#7a5c00" stroke-width="13" fill="none" stroke-linecap="round" opacity=".25"/>
+          <circle cx="327" cy="362" r="10" fill="url(#sbzSkin)" stroke="#7a5c00" stroke-width="2"/>
+          <circle cx="336" cy="356" r="4.5" fill="#f9d829" stroke="#7a5c00" stroke-width="1.5"/>
+          <circle cx="337" cy="364" r="4.5" fill="#f9d829" stroke="#7a5c00" stroke-width="1.5"/>
+          <circle cx="334" cy="371" r="4.5" fill="#f9d829" stroke="#7a5c00" stroke-width="1.5"/>
+        </g>
+
+        <!-- ===== TORSO ===== -->
+        <g class="sbz-torso">
+          <!-- wavy sponge edges -->
+          <ellipse cx="116" cy="100" rx="10" ry="16" fill="url(#sbzSkin)"/>
+          <ellipse cx="114" cy="170" rx="9" ry="14" fill="url(#sbzSkin)"/>
+          <ellipse cx="117" cy="238" rx="10" ry="15" fill="url(#sbzSkin)"/>
+          <ellipse cx="304" cy="92" rx="10" ry="15" fill="url(#sbzSkin)"/>
+          <ellipse cx="306" cy="162" rx="9" ry="16" fill="url(#sbzSkin)"/>
+          <ellipse cx="303" cy="232" rx="10" ry="14" fill="url(#sbzSkin)"/>
+          <ellipse cx="150" cy="56" rx="16" ry="9" fill="url(#sbzSkin)"/>
+          <ellipse cx="215" cy="54" rx="18" ry="10" fill="url(#sbzSkin)"/>
+          <ellipse cx="278" cy="57" rx="15" ry="9" fill="url(#sbzSkin)"/>
+
+          <!-- sponge body -->
+          <rect x="115" y="55" width="190" height="232" rx="18" fill="url(#sbzSkin)" stroke="#7a5c00" stroke-width="3"/>
+          <!-- porous texture -->
+          <rect x="115" y="55" width="190" height="232" rx="18" filter="url(#sbzNoise)" opacity=".35"/>
+
+          <!-- sponge holes -->
+          <g clip-path="url(#sbzBodyClip)">
+            <circle cx="140" cy="82" r="8" fill="#cfa021"/><ellipse cx="138" cy="80" rx="5" ry="4" fill="#a87c14"/>
+            <circle cx="272" cy="74" r="10" fill="#cfa021"/><ellipse cx="270" cy="71" rx="6" ry="5" fill="#a87c14"/>
+            <circle cx="126" cy="150" r="7" fill="#cfa021"/><ellipse cx="124" cy="148" rx="4" ry="3.5" fill="#a87c14"/>
+            <circle cx="294" cy="150" r="8" fill="#cfa021"/><ellipse cx="292" cy="148" rx="5" ry="4" fill="#a87c14"/>
+            <circle cx="133" cy="262" r="9" fill="#cfa021"/><ellipse cx="131" cy="259" rx="5.5" ry="4.5" fill="#a87c14"/>
+            <circle cx="287" cy="256" r="7" fill="#cfa021"/><ellipse cx="285" cy="254" rx="4" ry="3.5" fill="#a87c14"/>
+            <circle cx="211" cy="68" r="6" fill="#cfa021"/><ellipse cx="209.5" cy="66" rx="3.5" ry="3" fill="#a87c14"/>
+            <circle cx="245" cy="260" r="6.5" fill="#cfa021"/><ellipse cx="243" cy="258" rx="4" ry="3" fill="#a87c14"/>
+            <circle cx="172" cy="258" r="5.5" fill="#cfa021"/><ellipse cx="170.5" cy="256" rx="3.2" ry="2.6" fill="#a87c14"/>
+          </g>
+
+          <!-- shirt + pants -->
+          <rect x="112" y="287" width="196" height="22" fill="#fdfdfd" stroke="#7a5c00" stroke-width="2.5"/>
+          <rect x="112" y="309" width="196" height="46" rx="4" fill="url(#sbzPants)" stroke="#4c2a0e" stroke-width="3"/>
+          <line x1="146" y1="311" x2="146" y2="353" stroke="#5d3413" stroke-width="3"/>
+          <line x1="178" y1="311" x2="178" y2="353" stroke="#5d3413" stroke-width="3"/>
+          <line x1="242" y1="311" x2="242" y2="353" stroke="#5d3413" stroke-width="3"/>
+          <line x1="274" y1="311" x2="274" y2="353" stroke="#5d3413" stroke-width="3"/>
+          <!-- collar -->
+          <polygon points="192,288 210,288 201,301" fill="#fff" stroke="#9aa" stroke-width="1.5"/>
+          <polygon points="228,288 210,288 219,301" fill="#fff" stroke="#9aa" stroke-width="1.5"/>
+          <!-- tie -->
+          <g class="sbz-tie">
+            <polygon points="203,291 217,291 210,301" fill="#e02222" stroke="#8e0f0f" stroke-width="2"/>
+            <polygon points="210,299 221,318 210,342 199,318" fill="#e02222" stroke="#8e0f0f" stroke-width="2"/>
+          </g>
+
+          <!-- ===== FACE ===== -->
+          <!-- cheeks + freckles -->
+          <circle cx="150" cy="196" r="17" fill="url(#sbzCheek)"/>
+          <circle cx="270" cy="196" r="17" fill="url(#sbzCheek)"/>
+          <circle cx="146" cy="192" r="1.8" fill="#c98a12"/>
+          <circle cx="154" cy="199" r="1.8" fill="#c98a12"/>
+          <circle cx="145" cy="201" r="1.8" fill="#c98a12"/>
+          <circle cx="274" cy="192" r="1.8" fill="#c98a12"/>
+          <circle cx="266" cy="199" r="1.8" fill="#c98a12"/>
+          <circle cx="275" cy="201" r="1.8" fill="#c98a12"/>
+
+          <!-- eyes -->
+          <g class="sbz-eye sbz-eyeL">
+            <ellipse cx="178" cy="140" rx="31" ry="33" fill="#fff" stroke="#7a5c00" stroke-width="3"/>
+            <circle class="sbz-pupil" cx="184" cy="142" r="13" fill="#5ab4e5"/>
+            <circle class="sbz-pupil" cx="184" cy="142" r="6.5" fill="#101010"/>
+            <circle class="sbz-pupil" cx="187" cy="138" r="2.6" fill="#fff"/>
+            <path d="M160 112 l-8 -12 M172 108 l-3 -14 M186 108 l4 -13" stroke="#101010" stroke-width="3.5" stroke-linecap="round"/>
+          </g>
+          <g class="sbz-eye sbz-eyeR">
+            <ellipse cx="242" cy="140" rx="31" ry="33" fill="#fff" stroke="#7a5c00" stroke-width="3"/>
+            <circle class="sbz-pupil" cx="236" cy="142" r="13" fill="#5ab4e5"/>
+            <circle class="sbz-pupil" cx="236" cy="142" r="6.5" fill="#101010"/>
+            <circle class="sbz-pupil" cx="239" cy="138" r="2.6" fill="#fff"/>
+            <path d="M260 112 l8 -12 M248 108 l3 -14 M234 108 l-4 -13" stroke="#101010" stroke-width="3.5" stroke-linecap="round"/>
+          </g>
+
+          <!-- nose -->
+          <g class="sbz-nose">
+            <ellipse cx="210" cy="183" rx="7.5" ry="18" fill="url(#sbzSkin)" stroke="#7a5c00" stroke-width="2.5"/>
+          </g>
+
+          <!-- mouth: big grin + buck teeth -->
+          <path d="M148 202 q-6 -4 -4 -10 M272 202 q6 -4 4 -10" stroke="#7a3f00" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+          <path d="M148 202 Q210 254 272 202" stroke="#7a3f00" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+          <g class="sbz-teeth">
+            <rect x="196" y="224" width="13" height="17" rx="2.5" fill="#fff" stroke="#b9c0c9" stroke-width="1.5"/>
+            <rect x="211" y="224" width="13" height="17" rx="2.5" fill="#fff" stroke="#b9c0c9" stroke-width="1.5"/>
+          </g>
+        </g>
+      </g>
+    </g>
+  </svg>
+</div>
+
+<style>
+  .sbz-stage{position:relative;width:100%;max-width:540px;height:620px;margin:0 auto;
+    overflow:hidden;border-radius:22px;
+    background:radial-gradient(ellipse at 50% -10%,#1a7db0 0%,#0d5a8c 45%,#083e66 78%,#062c4e 100%);
+    box-shadow:0 22px 60px rgba(0,20,40,.45), inset 0 0 120px rgba(0,10,30,.35);
+    font-family:Arial,Helvetica,sans-serif;-webkit-user-select:none;user-select:none}
+
+  /* underwater light rays */
+  .sbz-ray{position:absolute;top:-15%;width:26%;height:80%;
+    background:linear-gradient(to bottom,rgba(190,235,255,.28),rgba(190,235,255,0));
+    filter:blur(6px);transform-origin:top center;pointer-events:none}
+  .sbz-ray1{left:14%;transform:rotate(14deg);animation:sbzRay 7s ease-in-out infinite alternate}
+  .sbz-ray2{right:12%;transform:rotate(-16deg);animation:sbzRay 9s ease-in-out infinite alternate-reverse}
+  @keyframes sbzRay{from{opacity:.35;transform:rotate(12deg)}to{opacity:.8;transform:rotate(18deg)}}
+
+  /* disco beams */
+  .sbz-beam{position:absolute;top:-30%;left:50%;width:150%;height:160%;margin-left:-75%;
+    mix-blend-mode:screen;pointer-events:none;transform-origin:50% 20%;opacity:.6}
+  .sbz-beamL{background:conic-gradient(from 200deg at 50% 20%,transparent 0 12%,rgba(255,60,180,.5) 15%,transparent 20%,transparent 40%,rgba(60,255,190,.45) 45%,transparent 50%);
+    animation:sbzSpin 6s linear infinite}
+  .sbz-beamR{background:conic-gradient(from 40deg at 50% 20%,transparent 0 10%,rgba(80,140,255,.5) 14%,transparent 19%,transparent 55%,rgba(255,230,80,.45) 60%,transparent 66%);
+    animation:sbzSpin 8s linear infinite reverse}
+  @keyframes sbzSpin{to{transform:rotate(360deg)}}
+
+  /* sand floor */
+  .sbz-floor{position:absolute;bottom:0;left:-5%;width:110%;height:96px;
+    background:linear-gradient(#e8c47c,#c79b52 60%,#a97f3d);
+    border-radius:100% 100% 0 0/60px 60px 0 0;
+    box-shadow:inset 0 8px 14px rgba(255,240,200,.5)}
+  .sbz-glow{position:absolute;bottom:28px;left:50%;width:420px;height:120px;transform:translateX(-50%);
+    background:radial-gradient(ellipse,rgba(255,120,220,.35),transparent 65%);
+    animation:sbzHue 5s linear infinite;pointer-events:none;mix-blend-mode:screen}
+  @keyframes sbzHue{to{filter:hue-rotate(360deg)}}
+
+  /* bubbles */
+  .sbz-bub{position:absolute;bottom:-30px;border-radius:50%;
+    background:radial-gradient(circle at 32% 30%,rgba(255,255,255,.85) 0 18%,rgba(190,230,255,.28) 45%,rgba(150,210,255,.12) 100%);
+    border:1px solid rgba(220,245,255,.5);animation:sbzRise linear infinite;pointer-events:none}
+  .b1{left:8%;width:16px;height:16px;animation-duration:7s}
+  .b2{left:22%;width:9px;height:9px;animation-duration:5.5s;animation-delay:1.2s}
+  .b3{left:55%;width:12px;height:12px;animation-duration:6.4s;animation-delay:2.8s}
+  .b4{left:72%;width:18px;height:18px;animation-duration:8s;animation-delay:.6s}
+  .b5{left:88%;width:10px;height:10px;animation-duration:5s;animation-delay:3.4s}
+  .b6{left:38%;width:7px;height:7px;animation-duration:6s;animation-delay:4.2s}
+  @keyframes sbzRise{
+    0%{transform:translate(0,0);opacity:0}
+    8%{opacity:1}
+    50%{transform:translate(14px,-46vh)}
+    100%{transform:translate(-8px,-92vh);opacity:0}}
+
+  /* music notes */
+  .sbz-note{position:absolute;font-size:30px;color:#fff;text-shadow:0 0 12px rgba(120,220,255,.9);
+    opacity:0;animation:sbzNote 3.2s ease-out infinite;pointer-events:none}
+  .n1{left:16%;bottom:44%;animation-delay:0s;color:#ffd75e}
+  .n2{left:78%;bottom:48%;animation-delay:.8s;color:#7ef0c9}
+  .n3{left:26%;bottom:58%;animation-delay:1.6s;color:#ff9de2}
+  .n4{left:68%;bottom:60%;animation-delay:2.4s;color:#8fc3ff}
+  @keyframes sbzNote{
+    0%{opacity:0;transform:translateY(18px) rotate(-14deg) scale(.7)}
+    18%{opacity:1}
+    100%{opacity:0;transform:translateY(-110px) rotate(16deg) scale(1.25)}}
+
+  /* ground shadow (squashes opposite the bounce) */
+  .sbz-shadow{position:absolute;bottom:44px;left:50%;width:230px;height:34px;transform:translateX(-50%);
+    background:radial-gradient(ellipse,rgba(0,15,35,.55),transparent 68%);
+    animation:sbzShadow .46s ease-in-out infinite alternate}
+  @keyframes sbzShadow{from{transform:translateX(-50%) scale(1.08)}to{transform:translateX(-50%) scale(.72);opacity:.55}}
+
+  /* ============ THE DANCE ============ */
+  .sbz-bob{position:absolute;bottom:8px;left:50%;width:330px;margin-left:-165px;overflow:visible}
+
+  .sbz-sway{transform-origin:210px 460px;animation:sbzSway 1.84s ease-in-out infinite}
+  @keyframes sbzSway{
+    0%,100%{transform:rotate(-5deg) translateX(-10px)}
+    50%{transform:rotate(5deg) translateX(10px)}}
+
+  .sbz-bounce{transform-origin:210px 460px;animation:sbzBounce .46s ease-in-out infinite alternate}
+  @keyframes sbzBounce{
+    from{transform:translateY(0) scale(1.05,.93)}
+    to{transform:translateY(-30px) scale(.97,1.05)}}
+
+  .sbz-arm{animation:sbzArmL .92s ease-in-out infinite}
+  .sbz-armL{transform-origin:122px 302px}
+  .sbz-armR{transform-origin:298px 302px;animation-name:sbzArmR}
+  @keyframes sbzArmL{
+    0%,100%{transform:rotate(-10deg)}
+    50%{transform:rotate(138deg)}}
+  @keyframes sbzArmR{
+    0%,100%{transform:rotate(-138deg)}
+    50%{transform:rotate(10deg)}}
+
+  .sbz-legL{transform-origin:180px 348px;animation:sbzKickL .92s ease-in-out infinite}
+  .sbz-legR{transform-origin:240px 348px;animation:sbzKickR .92s ease-in-out infinite}
+  @keyframes sbzKickL{
+    0%,100%{transform:rotate(0)}
+    25%{transform:rotate(34deg) translateY(-12px)}
+    50%{transform:rotate(0)}}
+  @keyframes sbzKickR{
+    0%,50%,100%{transform:rotate(0)}
+    75%{transform:rotate(-34deg) translateY(-12px)}}
+
+  .sbz-tie{transform-origin:210px 295px;animation:sbzTie .46s ease-in-out infinite alternate}
+  @keyframes sbzTie{from{transform:rotate(-6deg)}to{transform:rotate(6deg)}}
+
+  .sbz-eye{animation:sbzBlink 3.7s infinite}
+  .sbz-eyeL{transform-origin:178px 140px}
+  .sbz-eyeR{transform-origin:242px 140px;animation-delay:.05s}
+  @keyframes sbzBlink{
+    0%,91%,97%,100%{transform:scaleY(1)}
+    94%{transform:scaleY(.06)}}
+
+  .sbz-pupil{animation:sbzLook 3.68s ease-in-out infinite}
+  @keyframes sbzLook{
+    0%,100%{transform:translateX(0)}
+    25%{transform:translateX(-6px)}
+    75%{transform:translateX(6px)}}
+
+  .sbz-nose{transform-origin:210px 168px;animation:sbzNose .46s ease-in-out infinite alternate}
+  @keyframes sbzNose{from{transform:rotate(-4deg) scaleY(1.05)}to{transform:rotate(4deg) scaleY(.95)}}
+
+  .sbz-teeth{transform-origin:210px 224px;animation:sbzTeeth .46s ease-in-out infinite alternate}
+  @keyframes sbzTeeth{from{transform:scaleY(1)}to{transform:scaleY(.88)}}
+
+  /* respect reduced-motion settings */
+  @media (prefers-reduced-motion:reduce){
+    .sbz-stage *{animation-duration:20s!important}}
+</style>
+<!-- ============ END SPONGEBOB DANCE PARTY ============ -->
