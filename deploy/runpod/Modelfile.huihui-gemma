@@ -1,0 +1,23 @@
+# Optional: pin generation defaults for the Huihui Gemma model in Ollama.
+#
+# The base GGUF already carries Gemma's chat template, so this is only needed if
+# you want to fix a system prompt or sampling defaults. Build a named model with:
+#
+#   ollama create huihui-gemma \
+#     -f deploy/runpod/Modelfile.huihui-gemma
+#
+# Then select "huihui-gemma:latest" in Open WebUI.
+
+FROM hf.co/huihui-ai/Huihui-gemma-4-12B-agentic-fable5-abliterated-GGUF:Q4_K_M
+
+# Sampling defaults — tune to taste.
+PARAMETER temperature 0.7
+PARAMETER top_p 0.95
+PARAMETER top_k 64
+PARAMETER repeat_penalty 1.1
+
+# Context window. Raise if your GPU has headroom (KV cache grows with this).
+PARAMETER num_ctx 8192
+
+# Optional system prompt. Leave empty to use whatever Open WebUI sends.
+# SYSTEM """You are a helpful assistant."""
