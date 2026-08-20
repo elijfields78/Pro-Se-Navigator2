@@ -16,19 +16,36 @@ GGUF straight from Hugging Face.
 
 ## 0. What size GPU do you need?
 
-The model is ~12B parameters. Pick a quant that fits your GPU VRAM with room for
-context (KV cache):
+The model is ~12B parameters. **Important:** this specific repo's files are named
+`Huihui-gemma4-v2-abliterated-<QUANT>.gguf`, and it ships a limited set of quants —
+`Q8_0` is confirmed present; **`Q4_K_M` is *not* in this repo** (asking Ollama for it
+returns `400: The specified tag is not available`). Always confirm which quants exist
+before pulling (see "List available quants" below).
 
-| Quant       | ~File size | Fits comfortably on | Quality |
-|-------------|-----------|---------------------|---------|
-| `Q4_K_M`    | ~7–8 GB   | 16 GB (RTX 4080/A4000/A5000) | good default |
-| `Q5_K_M`    | ~9 GB     | 16–24 GB            | better |
-| `Q6_K`      | ~10 GB    | 24 GB (RTX 4090/A5000) | near-lossless |
-| `Q8_0`      | ~13 GB    | 24 GB               | highest practical |
+Pick a quant that fits your GPU VRAM with room for context (KV cache):
 
-Sizes are approximate — confirm the exact filenames on the model's **Files** tab.
-A 24 GB GPU (RTX 4090 / A5000 / L4) running `Q6_K` or `Q8_0` is a comfortable sweet
-spot. On 16 GB use `Q4_K_M`.
+| Quant       | ~File size | Fits comfortably on | Notes |
+|-------------|-----------|---------------------|-------|
+| `Q4_K_M`    | ~7–8 GB   | 16 GB (RTX 4080/A4000/A5000) | not published in this repo |
+| `Q5_K_M`    | ~9 GB     | 16–24 GB            | only if listed |
+| `Q6_K`      | ~10 GB    | 24 GB (RTX 4090/A5000) | only if listed |
+| `Q8_0`      | ~13 GB    | 16 GB tight / 24 GB comfortable | **confirmed available; use this** |
+
+Since `Q8_0` (~13 GB) is the reliably-present quant, you need a **16 GB+ GPU**
+(24 GB — RTX 4090 / A5000 / L4 — is comfortable). Check with `nvidia-smi`.
+
+### List available quants
+
+A bare `ollama/ollama` pod has no `curl`/`wget`/`python`. It runs as root on Ubuntu,
+so install a tool, then query Hugging Face's API for the real filenames:
+
+```bash
+apt-get update && apt-get install -y curl
+curl -s "https://huggingface.co/api/models/huihui-ai/Huihui-gemma-4-12B-agentic-fable5-abliterated-GGUF/tree/main?recursive=true" \
+  | tr ',' '\n' | grep -o '"path":"[^"]*\.gguf"'
+```
+
+The `<QUANT>` substring in each filename (e.g. `Q8_0`) is the Ollama tag to use.
 
 ---
 
@@ -41,13 +58,15 @@ will appear in the Open WebUI model dropdown automatically once Ollama has it.
 **One command** (run inside the container/pod that runs Ollama):
 
 ```bash
-ollama pull hf.co/huihui-ai/Huihui-gemma-4-12B-agentic-fable5-abliterated-GGUF:Q4_K_M
+ollama pull hf.co/huihui-ai/Huihui-gemma-4-12B-agentic-fable5-abliterated-GGUF:Q8_0
 ```
 
 - The `hf.co/<repo>:<QUANT>` form tells Ollama to pull that GGUF directly from
-  Hugging Face. Swap `Q4_K_M` for whatever quant you chose above (the tag is the
-  quant substring in the filename, case-insensitive).
-- Drop the `:Q4_K_M` tag to let Ollama pick a default quant.
+  Hugging Face. `Q8_0` is the confirmed-present quant for this repo; the tag is the
+  quant substring in the filename, case-insensitive, and **must be a quant that
+  actually exists** (see "List available quants" above) — a missing quant like
+  `Q4_K_M` returns `400: The specified tag is not available`.
+- If a tag 400s, fall back to `:latest`, or list the quants and use one that's there.
 
 Or run the helper, which detects/starts Ollama, lets you choose the quant, pulls it,
 and prints the exact next steps:
@@ -57,7 +76,7 @@ bash deploy/runpod/setup-ollama-openwebui.sh
 ```
 
 Then in **Open WebUI → model selector** (top-left), pick
-`hf.co/huihui-ai/Huihui-gemma-4-12B-agentic-fable5-abliterated-GGUF:Q4_K_M`.
+`hf.co/huihui-ai/Huihui-gemma-4-12B-agentic-fable5-abliterated-GGUF:Q8_0`.
 If it isn't listed, open **Admin Panel → Settings → Connections**, confirm the
 Ollama URL is `http://localhost:11434` (or your Ollama container URL), and click the
 refresh icon.

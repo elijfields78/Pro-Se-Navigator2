@@ -10,8 +10,13 @@
 #
 set -euo pipefail
 
+# NOTE: this repo publishes a limited set of quants. Q8_0 is confirmed present;
+# Q4_K_M is NOT in this repo (pulling it returns "tag not available"). List the
+# real quants first with:
+#   apt-get update && apt-get install -y curl
+#   curl -s "https://huggingface.co/api/models/huihui-ai/Huihui-gemma-4-12B-agentic-fable5-abliterated-GGUF/tree/main?recursive=true" | tr ',' '\n' | grep -o '"path":"[^"]*\.gguf"'
 REPO="hf.co/huihui-ai/Huihui-gemma-4-12B-agentic-fable5-abliterated-GGUF"
-DEFAULT_QUANT="${QUANT:-Q4_K_M}"
+DEFAULT_QUANT="${QUANT:-Q8_0}"
 
 log() { printf '\033[1;36m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m!  \033[0m %s\n' "$*"; }
@@ -45,17 +50,18 @@ command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi --query-gpu=name,memory.tota
 # --- Choose quant ------------------------------------------------------------
 if [ -z "${QUANT:-}" ] && [ -t 0 ]; then
   echo
-  echo "Choose a quantization (fits VRAM):"
-  echo "  1) Q4_K_M  ~7-8GB   16GB GPU   (default)"
-  echo "  2) Q5_K_M  ~9GB     16-24GB"
-  echo "  3) Q6_K    ~10GB    24GB       (near-lossless)"
-  echo "  4) Q8_0    ~13GB    24GB       (highest practical)"
+  echo "Choose a quantization. Only Q8_0 is confirmed present in this repo;"
+  echo "the others pull ONLY if the repo actually published them."
+  echo "  1) Q8_0    ~13GB   16GB tight / 24GB comfortable  (confirmed, default)"
+  echo "  2) Q6_K    ~10GB   24GB                           (only if present)"
+  echo "  3) Q5_K_M  ~9GB    16-24GB                        (only if present)"
+  echo "  4) Q4_K_M  ~7-8GB  16GB                           (NOT in this repo)"
   read -r -p "Selection [1-4, default 1]: " sel || true
   case "${sel:-1}" in
-    2) DEFAULT_QUANT="Q5_K_M" ;;
-    3) DEFAULT_QUANT="Q6_K" ;;
-    4) DEFAULT_QUANT="Q8_0" ;;
-    *) DEFAULT_QUANT="Q4_K_M" ;;
+    2) DEFAULT_QUANT="Q6_K" ;;
+    3) DEFAULT_QUANT="Q5_K_M" ;;
+    4) DEFAULT_QUANT="Q4_K_M" ;;
+    *) DEFAULT_QUANT="Q8_0" ;;
   esac
 fi
 
